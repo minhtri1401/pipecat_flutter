@@ -1,0 +1,17 @@
+CLAUDE.md
+ENHANCEMENT.md
+docs/
+tool/
+pubspec.lock
+*.iml
+android/local.properties
+android/.gradle/
+android/build/
+ios/.symlinks/
+ios/Pods/
+build/
+.dart_tool/
+.fvm/
+.gemini/
+plans/
+.idea/

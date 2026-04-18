@@ -1,0 +1,39 @@
+name: pipecat
+description: >-
+  Flutter plugin for Pipecat — build real-time voice and multimodal AI agents
+  with type-safe Dart bindings over the native iOS and Android client SDKs.
+version: 0.1.0
+homepage: https://pipecat.ai
+repository: https://github.com/minhtri1401/pipecat_flutter
+issue_tracker: https://github.com/minhtri1401/pipecat_flutter/issues
+topics:
+  - pipecat
+  - voice
+  - ai
+  - realtime
+  - webrtc
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  pigeon: ^22.7.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.8
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: ai.pipecat.client.flutter.pipecat
+        pluginClass: PipecatFlutterPlugin
+      ios:
+        pluginClass: PipecatFlutterPlugin
