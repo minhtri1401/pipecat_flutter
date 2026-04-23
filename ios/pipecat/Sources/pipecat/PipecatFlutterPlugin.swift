@@ -373,8 +373,21 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
     }
 
     public func sendAction(dataJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // Stub: forward as a generic client message
-        completion(.success(()))
+        guard let client = client else {
+            completion(.failure(NSError(
+                domain: "Pipecat",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "PipecatClient not initialized"]
+            )))
+            return
+        }
+        let data = (try? JSONDecoder().decode(Value.self, from: Data(dataJson.utf8)))
+        do {
+            try client.sendClientMessage(msgType: "action", data: data)
+            completion(.success(()))
+        } catch {
+            completion(.failure(error))
+        }
     }
 
     // MARK: - PipecatClientDelegate
