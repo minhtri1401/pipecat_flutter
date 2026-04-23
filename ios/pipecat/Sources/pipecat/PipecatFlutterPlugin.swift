@@ -15,9 +15,16 @@ class FlutterPipecatTransport: Transport {
     }
     
     func connect(params: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        state = .connected
-        delegate?.transport(self, didChangeState: state)
-        completion(.success(()))
+        let message =
+            "FlutterPipecatTransport is a no-op stub. Replace it with a real " +
+            "Pipecat transport (e.g. Daily / SmallWebRTC) before calling " +
+            "connect() or startBotAndConnect(). See the plugin README " +
+            "\"Transport\" section."
+        completion(.failure(NSError(
+            domain: "Pipecat",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: message]
+        )))
     }
     
     func disconnect(completion: @escaping (Result<Void, Error>) -> Void) {

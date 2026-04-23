@@ -90,6 +90,12 @@ calling `initDevices()`. Packages like
 
 ## Quick start
 
+> **⚠️ This release's transport is a stub.** The snippet below illustrates
+> the shape of the API, but calling `startBotAndConnect()` in 0.1.x will
+> throw `PipecatConnectionException("FlutterPipecatTransport is a no-op
+> stub…")` until you fork and replace `FlutterPipecatTransport` with a
+> real Pipecat transport. See [Transport](#transport).
+
 ```dart
 import 'package:pipecat/pipecat.dart';
 
@@ -104,15 +110,19 @@ client.onUserTranscript.listen((t) {
 client.onBotTranscript.listen((text) => print('bot: $text'));
 client.onError.listen((e) => print('error: $e'));
 
-// Initialize and connect
+// Initialize and enumerate devices (safe with the stub transport)
 await client.initialize(enableMic: true, enableCam: false);
 await client.initDevices();
-await client.startBotAndConnect(
-  endpoint: 'https://your-pipecat-endpoint.com/connect',
-);
 
-// Send a text turn
-await client.sendText('Hello!');
+// With a real transport wired up:
+try {
+  await client.startBotAndConnect(
+    endpoint: 'https://your-pipecat-endpoint.com/connect',
+  );
+  await client.sendText('Hello!');
+} on PipecatConnectionException catch (e) {
+  print('connect failed: $e');
+}
 
 // React to hardware state changes
 client.hardwareState.addListener(() {

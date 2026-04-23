@@ -25,8 +25,12 @@ class FlutterPipecatTransport : Transport<String> {
     }
 
     override fun connect(params: String) {
-        currentState = TransportState.Connected
-        listener?.onTransportStateChanged(currentState)
+        throw IllegalStateException(
+            "FlutterPipecatTransport is a no-op stub. Replace it with a real " +
+            "Pipecat transport (e.g. Daily / SmallWebRTC) before calling " +
+            "connect() or startBotAndConnect(). See the plugin README " +
+            "\"Transport\" section."
+        )
     }
 
     override fun disconnect() {
