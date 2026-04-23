@@ -647,9 +647,15 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onServerMessage(String dataJson) {
-    final value = Value.fromJsonString(dataJson);
-    if (value != null) {
-      _client._onServerMessageController.add(value);
+    try {
+      final value = Value.tryFromJsonString(dataJson);
+      if (value != null) {
+        _client._onServerMessageController.add(value);
+      }
+    } on FormatException catch (e) {
+      _client._onMessageErrorController.add(
+        'Failed to parse onServerMessage payload: ${e.message}',
+      );
     }
   }
 

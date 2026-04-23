@@ -188,6 +188,32 @@ void main() {
       await sendCallback('onRemoteAudioLevel', [0.5, 'p1']);
       expect(events.first, (0.5, 'p1'));
     });
+
+    test('onServerMessage with invalid JSON emits to onMessageError', () async {
+      final serverMessages = <Value>[];
+      final errors = <String>[];
+      client.onServerMessage.listen(serverMessages.add);
+      client.onMessageError.listen(errors.add);
+
+      await sendCallback('onServerMessage', ['{not json']);
+
+      expect(serverMessages, isEmpty);
+      expect(errors.length, 1);
+      expect(errors.first.toLowerCase(), contains('parse'));
+    });
+
+    test('onServerMessage with valid JSON still emits to onServerMessage', () async {
+      final serverMessages = <Value>[];
+      final errors = <String>[];
+      client.onServerMessage.listen(serverMessages.add);
+      client.onMessageError.listen(errors.add);
+
+      await sendCallback('onServerMessage', ['{"foo":42}']);
+
+      expect(errors, isEmpty);
+      expect(serverMessages.length, 1);
+      expect(serverMessages.first, isA<ValueObject>());
+    });
   });
 
   group('New Task 8 Events', () {
