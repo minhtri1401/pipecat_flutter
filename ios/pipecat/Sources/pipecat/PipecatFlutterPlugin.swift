@@ -141,7 +141,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         
         let sdkRequest = PipecatClientIOS.APIRequest(
             endpoint: url,
-            headers: request.headers.compactMapValues { $0 } as [[String: String]],
+            headers: request.headers,
             requestData: request.requestData.flatMap { try? JSONDecoder().decode(Value.self, from: Data($0.utf8)) },
             timeout: request.timeoutMs.map { TimeInterval($0) / 1000.0 }
         )
@@ -183,7 +183,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         
         let sdkRequest = PipecatClientIOS.APIRequest(
             endpoint: url,
-            headers: request.headers.compactMapValues { $0 } as [[String: String]],
+            headers: request.headers,
             requestData: request.requestData.flatMap { try? JSONDecoder().decode(Value.self, from: Data($0.utf8)) },
             timeout: request.timeoutMs.map { TimeInterval($0) / 1000.0 }
         )

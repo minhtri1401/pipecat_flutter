@@ -368,7 +368,7 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     override fun startBot(request: APIRequest, callback: (Result<String>) -> Unit) {
         val sdkRequest = ai.pipecat.client.types.APIRequest(
             endpoint = request.endpoint,
-            headers = request.headers as Map<String, String>,
+            headers = request.headers,
             requestData = request.requestData,
             timeoutMs = request.timeoutMs
         )
@@ -396,7 +396,7 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     override fun startBotAndConnect(request: APIRequest, callback: (Result<Unit>) -> Unit) {
         val sdkRequest = ai.pipecat.client.types.APIRequest(
             endpoint = request.endpoint,
-            headers = request.headers as Map<String, String>,
+            headers = request.headers,
             requestData = request.requestData,
             timeoutMs = request.timeoutMs
         )

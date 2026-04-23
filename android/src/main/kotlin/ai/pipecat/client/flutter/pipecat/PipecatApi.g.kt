@@ -73,7 +73,7 @@ data class PipecatClientOptions (
 /** Generated class from Pigeon that represents data sent in messages. */
 data class APIRequest (
   val endpoint: String,
-  val headers: Map<String?, String?>,
+  val headers: Map<String, String>,
   val requestData: String? = null,
   val timeoutMs: Long? = null
 )
@@ -81,7 +81,7 @@ data class APIRequest (
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): APIRequest {
       val endpoint = pigeonVar_list[0] as String
-      val headers = pigeonVar_list[1] as Map<String?, String?>
+      val headers = pigeonVar_list[1] as Map<String, String>
       val requestData = pigeonVar_list[2] as String?
       val timeoutMs = pigeonVar_list[3] as Long?
       return APIRequest(endpoint, headers, requestData, timeoutMs)

@@ -61,7 +61,7 @@ class APIRequest {
 
   String endpoint;
 
-  Map<String?, String?> headers;
+  Map<String, String> headers;
 
   String? requestData;
 
@@ -80,7 +80,7 @@ class APIRequest {
     result as List<Object?>;
     return APIRequest(
       endpoint: result[0]! as String,
-      headers: (result[1] as Map<Object?, Object?>?)!.cast<String?, String?>(),
+      headers: (result[1] as Map<Object?, Object?>?)!.cast<String, String>(),
       requestData: result[2] as String?,
       timeoutMs: result[3] as int?,
     );

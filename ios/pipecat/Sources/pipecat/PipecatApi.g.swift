@@ -95,7 +95,7 @@ struct PipecatClientOptions {
 /// Generated class from Pigeon that represents data sent in messages.
 struct APIRequest {
   var endpoint: String
-  var headers: [String?: String?]
+  var headers: [String: String]
   var requestData: String? = nil
   var timeoutMs: Int64? = nil
 
@@ -103,7 +103,7 @@ struct APIRequest {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> APIRequest? {
     let endpoint = pigeonVar_list[0] as! String
-    let headers = pigeonVar_list[1] as! [String?: String?]
+    let headers = pigeonVar_list[1] as! [String: String]
     let requestData: String? = nilOrValue(pigeonVar_list[2])
     let timeoutMs: Int64? = nilOrValue(pigeonVar_list[3])
 
