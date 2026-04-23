@@ -292,13 +292,33 @@ class PipecatClient {
   }
 
   /// Sends a client request and returns a type-safe [Value] response.
+  ///
+  /// Throws [PipecatException] if the native side returns an empty string or
+  /// a payload that is not valid JSON.
   Future<Value> sendClientRequest(String msgType, Value? data) async {
     _ensureAlive();
+    final String responseJson;
     try {
-      final responseJson = await _api.sendClientRequest(msgType, data?.toJsonString());
-      return Value.fromJsonString(responseJson) ?? const ValueNull();
+      responseJson =
+          await _api.sendClientRequest(msgType, data?.toJsonString());
     } on PlatformException catch (e) {
-      throw PipecatException(e.message ?? 'Failed to send request', code: e.code);
+      throw PipecatException(e.message ?? 'Failed to send request',
+          code: e.code);
+    }
+    if (responseJson.isEmpty) {
+      throw const PipecatException(
+        'sendClientRequest returned an empty response. '
+        'Did you call initialize()?',
+        code: 'empty-response',
+      );
+    }
+    try {
+      return Value.tryFromJsonString(responseJson) ?? const ValueNull();
+    } on FormatException catch (e) {
+      throw PipecatException(
+        'sendClientRequest response was not valid JSON: ${e.message}',
+        code: 'malformed-response',
+      );
     }
   }
 
