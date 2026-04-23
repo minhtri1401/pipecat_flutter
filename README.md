@@ -39,6 +39,36 @@ wiring is not. See [**Transport**](#transport) below before you integrate.
 
 ---
 
+## Known limitations
+
+The plugin's Dart surface is a subset of the upstream Pipecat client SDKs.
+Functionality listed below is absent in 0.1.x and planned for 0.2.x:
+
+- **Pluggable transport.** `FlutterPipecatTransport` is a stub. There is
+  no Dart-visible way to select a concrete transport (Daily, SmallWebRTC,
+  etc.) — today you must fork and replace the native class. See
+  [Transport](#transport).
+- **`appendToContext(LLMContextMessage)`.** The upstream iOS/Android SDKs
+  expose an `appendToContext` method plus an `LLMContextMessage` type for
+  injecting into the conversation. Not exposed here yet.
+- **`enableScreenShare(bool)` / `isSharingScreen`.** The JS upstream
+  exposes these; no Dart equivalent in 0.1.x.
+- **`setLogLevel(PipecatLogLevel)`.** No way to control native SDK log
+  verbosity from Dart.
+- **Typed `ClientMessageData` response from `sendClientRequest`.**
+  Responses are exposed as raw `Value`; the upstream typed envelope
+  (`msgType` + `data`) is not surfaced.
+- **Typed device-error / user-mute callbacks.** Upstream exposes
+  `onDeviceError`, `onUserMuteStarted`, `onUserMuteStopped`; Dart clients
+  see only the aggregate `onError` / `onInputsUpdated`.
+- **Full `RTVIMessage` envelope on errors.** `onBackendError` / `onError`
+  flatten the envelope; the upstream `namespace`, `id`, and `data` fields
+  are dropped.
+- **Naming alignment.** Dart uses `registerFunctionHandler`; upstream
+  uses `registerFunctionCallHandler`. Aliases will ship in 0.2.0.
+
+---
+
 ## Installation
 
 ```yaml

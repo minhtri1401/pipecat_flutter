@@ -57,7 +57,7 @@ class PipecatClient {
   }
 
   /// The plugin package version.
-  static const String pluginVersion = '0.1.0';
+  static const String pluginVersion = '0.1.1';
 
   // --- Stream Controllers ---
 
