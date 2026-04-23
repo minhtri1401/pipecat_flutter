@@ -46,6 +46,17 @@ sealed class Value {
     }
   }
 
+  /// Strict variant of [fromJsonString] that does NOT swallow parse errors.
+  ///
+  /// Returns `null` only when [jsonString] is `null`. Throws
+  /// [FormatException] for empty strings or malformed JSON. Use this at
+  /// boundaries where a dropped message would be a silent bug (e.g. inbound
+  /// server messages, request/response payloads).
+  static Value? tryFromJsonString(String? jsonString) {
+    if (jsonString == null) return null;
+    return fromDynamic(jsonDecode(jsonString));
+  }
+
   /// Converts this [Value] back to a JSON-compatible Dart object.
   dynamic toJson();
 
