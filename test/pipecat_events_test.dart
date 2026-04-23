@@ -214,6 +214,30 @@ void main() {
       expect(serverMessages.length, 1);
       expect(serverMessages.first, isA<ValueObject>());
     });
+
+    test('callbacks after dispose do not throw', () async {
+      // Build a client with a unique suffix so we can exercise dispose in
+      // isolation from the shared `client` created in setUp. The test
+      // framework will fail the test if sendCallback throws post-dispose.
+      final localClient =
+          PipecatClient(messageChannelSuffix: '.dispose-race');
+      final events = <void>[];
+      localClient.onConnected.listen(events.add);
+
+      localClient.dispose();
+
+      // Simulate a native callback landing after dispose.
+      final channel =
+          'dev.flutter.pigeon.pipecat_flutter.PipecatClientCallbacks.onConnected.dispose-race';
+      await messenger.handlePlatformMessage(
+        channel,
+        codec.encodeMessage(<Object?>[]),
+        (ByteData? data) {},
+      );
+      await Future.delayed(Duration.zero);
+
+      expect(events, isEmpty); // handler torn down, no dispatch
+    });
   });
 
   group('New Task 8 Events', () {

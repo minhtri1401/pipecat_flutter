@@ -560,86 +560,96 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   final PipecatClient _client;
 
-  @override
-  void onConnected() => _client._onConnectedController.add(null);
+  void _safeAdd<T>(StreamController<T> controller, T event) {
+    if (_client._disposed) return;
+    if (controller.isClosed) return;
+    controller.add(event);
+  }
 
   @override
-  void onDisconnected() => _client._onDisconnectedController.add(null);
+  void onConnected() => _safeAdd(_client._onConnectedController, null);
 
   @override
-  void onTransportStateChanged(String state) =>
-      _client._onTransportStateChangedController.add(TransportState.fromString(state));
+  void onDisconnected() => _safeAdd(_client._onDisconnectedController, null);
 
   @override
-  void onBotReady(pigeon.BotReadyData botReadyData) =>
-      _client._onBotReadyController.add(PipecatClient._mapBotReadyData(botReadyData));
+  void onTransportStateChanged(String state) => _safeAdd(
+      _client._onTransportStateChangedController,
+      TransportState.fromString(state));
+
+  @override
+  void onBotReady(pigeon.BotReadyData botReadyData) => _safeAdd(
+      _client._onBotReadyController,
+      PipecatClient._mapBotReadyData(botReadyData));
 
   @override
   void onBackendError(String message) =>
-      _client._onBackendErrorController.add(message);
+      _safeAdd(_client._onBackendErrorController, message);
 
   @override
   void onLocalAudioLevel(double level) =>
-      _client._onLocalAudioLevelController.add(level);
+      _safeAdd(_client._onLocalAudioLevelController, level);
 
   @override
-  void onRemoteAudioLevel(double level, String participantId) =>
-      _client._onRemoteAudioLevelController.add((level, participantId));
+  void onRemoteAudioLevel(double level, String participantId) => _safeAdd(
+      _client._onRemoteAudioLevelController, (level, participantId));
 
   @override
   void onBotStartedSpeaking() =>
-      _client._onBotStartedSpeakingController.add(null);
+      _safeAdd(_client._onBotStartedSpeakingController, null);
 
   @override
   void onBotStoppedSpeaking() =>
-      _client._onBotStoppedSpeakingController.add(null);
+      _safeAdd(_client._onBotStoppedSpeakingController, null);
 
   @override
   void onUserStartedSpeaking() =>
-      _client._onUserStartedSpeakingController.add(null);
+      _safeAdd(_client._onUserStartedSpeakingController, null);
 
   @override
   void onUserStoppedSpeaking() =>
-      _client._onUserStoppedSpeakingController.add(null);
+      _safeAdd(_client._onUserStoppedSpeakingController, null);
 
   @override
-  void onUserTranscript(pigeon.Transcript transcript) =>
-      _client._onUserTranscriptController.add(PipecatClient._mapTranscript(transcript));
+  void onUserTranscript(pigeon.Transcript transcript) => _safeAdd(
+      _client._onUserTranscriptController,
+      PipecatClient._mapTranscript(transcript));
 
   @override
   void onBotTranscript(String text) =>
-      _client._onBotTranscriptController.add(text);
+      _safeAdd(_client._onBotTranscriptController, text);
 
   @override
   void onBotLlmText(String text) =>
-      _client._onBotLlmTextController.add(text);
+      _safeAdd(_client._onBotLlmTextController, text);
 
   @override
   void onBotTtsText(String text) =>
-      _client._onBotTtsTextController.add(text);
+      _safeAdd(_client._onBotTtsTextController, text);
 
   @override
-  void onBotOutput(pigeon.BotOutputData data) =>
-      _client._onBotOutputController.add(PipecatClient._mapBotOutputData(data));
+  void onBotOutput(pigeon.BotOutputData data) => _safeAdd(
+      _client._onBotOutputController, PipecatClient._mapBotOutputData(data));
 
   @override
   void onBotLlmStarted() =>
-      _client._onBotLlmStartedController.add(null);
+      _safeAdd(_client._onBotLlmStartedController, null);
 
   @override
   void onBotLlmStopped() =>
-      _client._onBotLlmStoppedController.add(null);
+      _safeAdd(_client._onBotLlmStoppedController, null);
 
   @override
   void onBotTtsStarted() =>
-      _client._onBotTtsStartedController.add(null);
+      _safeAdd(_client._onBotTtsStartedController, null);
 
   @override
   void onBotTtsStopped() =>
-      _client._onBotTtsStoppedController.add(null);
+      _safeAdd(_client._onBotTtsStoppedController, null);
 
   @override
   Future<String?> onLlmFunctionCall(pigeon.LLMFunctionCallData data) async {
+    if (_client._disposed) return null;
     final handler = _client._functionHandlers[data.functionName];
     if (handler == null) return null;
 
@@ -653,27 +663,31 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
       final result = await handler(callData);
       return result.toJsonString();
     } catch (e) {
-      debugPrint('PipecatClient: error in function handler "${data.functionName}": $e');
-      _client._onErrorController.add(
-        PipecatFunctionCallException('Function call "${data.functionName}" failed: $e'),
+      debugPrint(
+          'PipecatClient: error in function handler "${data.functionName}": $e');
+      _safeAdd(
+        _client._onErrorController,
+        PipecatFunctionCallException(
+            'Function call "${data.functionName}" failed: $e'),
       );
       return null;
     }
   }
 
   @override
-  void onMetrics(pigeon.PipecatMetrics metrics) =>
-      _client._onMetricsController.add(PipecatClient._mapMetrics(metrics));
+  void onMetrics(pigeon.PipecatMetrics metrics) => _safeAdd(
+      _client._onMetricsController, PipecatClient._mapMetrics(metrics));
 
   @override
   void onServerMessage(String dataJson) {
     try {
       final value = Value.tryFromJsonString(dataJson);
       if (value != null) {
-        _client._onServerMessageController.add(value);
+        _safeAdd(_client._onServerMessageController, value);
       }
     } on FormatException catch (e) {
-      _client._onMessageErrorController.add(
+      _safeAdd(
+        _client._onMessageErrorController,
         'Failed to parse onServerMessage payload: ${e.message}',
       );
     }
@@ -681,26 +695,30 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onMessageError(String message) =>
-      _client._onMessageErrorController.add(message);
+      _safeAdd(_client._onMessageErrorController, message);
 
   @override
-  void onParticipantJoined(pigeon.Participant participant) =>
-      _client._onParticipantJoinedController.add(PipecatClient._mapParticipant(participant));
+  void onParticipantJoined(pigeon.Participant participant) => _safeAdd(
+      _client._onParticipantJoinedController,
+      PipecatClient._mapParticipant(participant));
 
   @override
-  void onParticipantLeft(pigeon.Participant participant) =>
-      _client._onParticipantLeftController.add(PipecatClient._mapParticipant(participant));
+  void onParticipantLeft(pigeon.Participant participant) => _safeAdd(
+      _client._onParticipantLeftController,
+      PipecatClient._mapParticipant(participant));
 
   @override
-  void onParticipantUpdated(pigeon.Participant participant) =>
-      _client._onParticipantUpdatedController.add(PipecatClient._mapParticipant(participant));
+  void onParticipantUpdated(pigeon.Participant participant) => _safeAdd(
+      _client._onParticipantUpdatedController,
+      PipecatClient._mapParticipant(participant));
 
   @override
-  void onTracksUpdated(pigeon.Tracks tracks) =>
-      _client._onTracksUpdatedController.add(PipecatClient._mapTracks(tracks));
+  void onTracksUpdated(pigeon.Tracks tracks) => _safeAdd(
+      _client._onTracksUpdatedController, PipecatClient._mapTracks(tracks));
 
   @override
   void onAvailableCamsUpdated(List<pigeon.MediaDeviceInfo?> cams) {
+    if (_client._disposed) return;
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       availableCams: PipecatClient._mapDeviceList(cams),
     );
@@ -708,6 +726,7 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onAvailableMicsUpdated(List<pigeon.MediaDeviceInfo?> mics) {
+    if (_client._disposed) return;
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       availableMics: PipecatClient._mapDeviceList(mics),
     );
@@ -715,6 +734,7 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onAvailableSpeakersUpdated(List<pigeon.MediaDeviceInfo?> speakers) {
+    if (_client._disposed) return;
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       availableSpeakers: PipecatClient._mapDeviceList(speakers),
     );
@@ -722,6 +742,7 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onCamUpdated(pigeon.MediaDeviceInfo cam) {
+    if (_client._disposed) return;
     final mapped = PipecatClient._mapDevice(cam);
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       selectedCam: () => mapped,
@@ -730,6 +751,7 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onMicUpdated(pigeon.MediaDeviceInfo mic) {
+    if (_client._disposed) return;
     final mapped = PipecatClient._mapDevice(mic);
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       selectedMic: () => mapped,
@@ -738,6 +760,7 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onSpeakerUpdated(pigeon.MediaDeviceInfo speaker) {
+    if (_client._disposed) return;
     final mapped = PipecatClient._mapDevice(speaker);
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       selectedSpeaker: () => mapped,
@@ -746,45 +769,54 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
 
   @override
   void onBotLLMSearchResponse(pigeon.BotLLMSearchResponseData response) =>
-      _client._onBotLLMSearchResponseController.add(PipecatClient._mapSearchResponse(response));
+      _safeAdd(_client._onBotLLMSearchResponseController,
+          PipecatClient._mapSearchResponse(response));
 
   // New callbacks
 
   @override
-  void onBotConnected(pigeon.Participant participant) =>
-      _client._onBotConnectedController.add(PipecatClient._mapParticipant(participant));
+  void onBotConnected(pigeon.Participant participant) => _safeAdd(
+      _client._onBotConnectedController,
+      PipecatClient._mapParticipant(participant));
 
   @override
-  void onBotDisconnected(pigeon.Participant participant) =>
-      _client._onBotDisconnectedController.add(PipecatClient._mapParticipant(participant));
+  void onBotDisconnected(pigeon.Participant participant) => _safeAdd(
+      _client._onBotDisconnectedController,
+      PipecatClient._mapParticipant(participant));
 
   @override
-  void onBotStarted(String? dataJson) =>
-      _client._onBotStartedController.add(Value.fromJsonString(dataJson));
+  void onBotStarted(String? dataJson) => _safeAdd(
+      _client._onBotStartedController, Value.fromJsonString(dataJson));
 
   @override
   void onTrackStarted(String trackId, pigeon.Participant participant) =>
-      _client._onTrackStartedController.add((trackId, PipecatClient._mapParticipant(participant)));
+      _safeAdd(_client._onTrackStartedController,
+          (trackId, PipecatClient._mapParticipant(participant)));
 
   @override
   void onTrackStopped(String trackId, pigeon.Participant participant) =>
-      _client._onTrackStoppedController.add((trackId, PipecatClient._mapParticipant(participant)));
+      _safeAdd(_client._onTrackStoppedController,
+          (trackId, PipecatClient._mapParticipant(participant)));
 
   @override
   void onScreenTrackStarted(String trackId, pigeon.Participant participant) =>
-      _client._onScreenTrackStartedController.add((trackId, PipecatClient._mapParticipant(participant)));
+      _safeAdd(_client._onScreenTrackStartedController,
+          (trackId, PipecatClient._mapParticipant(participant)));
 
   @override
   void onScreenTrackStopped(String trackId, pigeon.Participant participant) =>
-      _client._onScreenTrackStoppedController.add((trackId, PipecatClient._mapParticipant(participant)));
+      _safeAdd(_client._onScreenTrackStoppedController,
+          (trackId, PipecatClient._mapParticipant(participant)));
 
   @override
   void onScreenShareError(String message) =>
-      _client._onScreenShareErrorController.add(message);
+      _safeAdd(_client._onScreenShareErrorController, message);
 
   @override
   void onInputsUpdated(bool camera, bool mic) {
-    _client._onInputsUpdatedController.add((camera: camera, mic: mic));
+    if (_client._disposed) return;
+    _safeAdd(
+        _client._onInputsUpdatedController, (camera: camera, mic: mic));
     _client._hardwareState.value = _client._hardwareState.value.copyWith(
       isCamEnabled: camera,
       isMicEnabled: mic,
@@ -792,6 +824,6 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
   }
 
   @override
-  void onGenericError(String message, String? code) =>
-      _client._onErrorController.add(PipecatException(message, code: code));
+  void onGenericError(String message, String? code) => _safeAdd(
+      _client._onErrorController, PipecatException(message, code: code));
 }
