@@ -134,7 +134,7 @@ void main() {
       expect(api.lastInitOptions?.kind, pigeon.TransportKind.smallWebRtc);
     });
 
-    test('PlatformException from native is wrapped as PipecatConnectionException',
+    test('PlatformException from native is wrapped as PipecatConnectionException with message + code',
         () async {
       final api = _StubApi()..throwOnConnect = true;
       final client = PipecatClient.withApi(
@@ -143,11 +143,15 @@ void main() {
       );
       await client.initialize();
 
-      expect(
+      await expectLater(
         () => client.connect(
           transportParams: const DailyConnectParams(roomUrl: 'https://x.daily.co/y'),
         ),
-        throwsA(isA<PipecatConnectionException>()),
+        throwsA(
+          isA<PipecatConnectionException>()
+              .having((e) => e.message, 'message', 'boom')
+              .having((e) => e.code, 'code', 'native'),
+        ),
       );
     });
   });

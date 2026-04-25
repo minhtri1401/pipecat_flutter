@@ -5,9 +5,12 @@ import PipecatClientIOSDaily
 import PipecatClientIOSSmallWebrtc
 
 /// Maps Dart-owned wire JSON into the SDK's typed Daily params.
-func parseDailyConnectionParams(_ json: [String: Any]) -> DailyTransportConnectionParams {
-    DailyTransportConnectionParams(
-        roomUrl: json["roomUrl"] as? String ?? "",
+func parseDailyConnectionParams(_ json: [String: Any]) throws -> DailyTransportConnectionParams {
+    guard let roomUrl = json["roomUrl"] as? String else {
+        throw PipecatPluginError.invalidParams("missing roomUrl")
+    }
+    return DailyTransportConnectionParams(
+        roomUrl: roomUrl,
         token: json["token"] as? String,
         joinSettings: nil
     )
@@ -166,7 +169,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         do {
             switch kind {
             case .daily:
-                params = parseDailyConnectionParams(json)
+                params = try parseDailyConnectionParams(json)
             case .smallWebRtc:
                 params = try parseSmallWebRTCConnectionParams(json)
             }

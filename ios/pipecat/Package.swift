@@ -20,11 +20,17 @@ let package = Package(
             dependencies: [
                 .product(name: "PipecatClientIOS",          package: "pipecat-client-ios"),
                 .product(name: "PipecatClientIOSDaily",     package: "pipecat-client-ios-daily"),
+                // Lowercase `rtc` is intentional — it matches the upstream
+                // package's product name in pipecat-client-ios-small-webrtc.
                 .product(name: "PipecatClientIOSSmallWebrtc", package: "pipecat-client-ios-small-webrtc"),
             ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
             ]
+        ),
+        .testTarget(
+            name: "pipecatTests",
+            dependencies: ["pipecat"]
         ),
     ]
 )

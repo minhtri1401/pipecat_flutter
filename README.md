@@ -247,8 +247,8 @@ flutter run
 ```
 
 Edit the endpoint field in the app to point at your Pipecat server. The
-example will only actually exchange media once you have a real transport
-wired up (see [Transport](#transport)).
+example uses `SmallWebRTCTransport`; swap to `DailyTransport` plus
+`DailyConnectParams` if your server hosts a Daily room.
 
 ---
 

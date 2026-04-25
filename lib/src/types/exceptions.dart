@@ -30,9 +30,9 @@ class PipecatFunctionCallException extends PipecatException {
 /// Thrown when [PipecatConnectParams] passed to `connect()` doesn't pair
 /// with the [PipecatTransport] chosen at client construction.
 class PipecatTransportMismatchException extends PipecatException {
-  PipecatTransportMismatchException(this.transportType, this.paramsType)
+  const PipecatTransportMismatchException(this.transportType, this.paramsType)
       : super(
-          'Transport $transportType cannot accept params of type $paramsType',
+          'Transport mismatch: $transportType cannot accept $paramsType',
           code: 'transport-mismatch',
         );
 
