@@ -193,5 +193,31 @@ void main() {
         expect(value.toJsonString(), '{"key":"val"}');
       });
     });
+
+    group('tryFromJsonString', () {
+      test('returns null for null input', () {
+        expect(Value.tryFromJsonString(null), isNull);
+      });
+
+      test('parses valid JSON', () {
+        final v = Value.tryFromJsonString('{"a":1}');
+        expect(v, isA<ValueObject>());
+        expect(((v as ValueObject).properties['a'] as ValueNumber).value, 1);
+      });
+
+      test('throws FormatException on empty string', () {
+        expect(
+          () => Value.tryFromJsonString(''),
+          throwsA(isA<FormatException>()),
+        );
+      });
+
+      test('throws FormatException on malformed JSON', () {
+        expect(
+          () => Value.tryFromJsonString('{not json'),
+          throwsA(isA<FormatException>()),
+        );
+      });
+    });
   });
 }

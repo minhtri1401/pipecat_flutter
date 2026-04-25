@@ -9,7 +9,7 @@ void main() {
     late PipecatClient client;
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
     });
 
     tearDown(() {
@@ -86,7 +86,7 @@ void main() {
     test('dispose can be called once', () {
       client.dispose();
       // Create a fresh one for tearDown
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
     });
   });
 }

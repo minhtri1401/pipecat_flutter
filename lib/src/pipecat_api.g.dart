@@ -25,11 +25,19 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   return <Object?>[error.code, error.message, error.details];
 }
 
+enum TransportKind {
+  daily,
+  smallWebRtc,
+}
+
 class PipecatClientOptions {
   PipecatClientOptions({
+    required this.kind,
     required this.enableMic,
     required this.enableCam,
   });
+
+  TransportKind kind;
 
   bool enableMic;
 
@@ -37,6 +45,7 @@ class PipecatClientOptions {
 
   Object encode() {
     return <Object?>[
+      kind,
       enableMic,
       enableCam,
     ];
@@ -45,8 +54,9 @@ class PipecatClientOptions {
   static PipecatClientOptions decode(Object result) {
     result as List<Object?>;
     return PipecatClientOptions(
-      enableMic: result[0]! as bool,
-      enableCam: result[1]! as bool,
+      kind: result[0]! as TransportKind,
+      enableMic: result[1]! as bool,
+      enableCam: result[2]! as bool,
     );
   }
 }
@@ -61,7 +71,7 @@ class APIRequest {
 
   String endpoint;
 
-  Map<String?, String?> headers;
+  Map<String, String> headers;
 
   String? requestData;
 
@@ -80,7 +90,7 @@ class APIRequest {
     result as List<Object?>;
     return APIRequest(
       endpoint: result[0]! as String,
-      headers: (result[1] as Map<Object?, Object?>?)!.cast<String?, String?>(),
+      headers: (result[1] as Map<Object?, Object?>?)!.cast<String, String>(),
       requestData: result[2] as String?,
       timeoutMs: result[3] as int?,
     );
@@ -478,50 +488,53 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is PipecatClientOptions) {
+    }    else if (value is TransportKind) {
       buffer.putUint8(129);
-      writeValue(buffer, value.encode());
-    }    else if (value is APIRequest) {
+      writeValue(buffer, value.index);
+    }    else if (value is PipecatClientOptions) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is SendTextOptions) {
+    }    else if (value is APIRequest) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    }    else if (value is MediaDeviceInfo) {
+    }    else if (value is SendTextOptions) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    }    else if (value is Transcript) {
+    }    else if (value is MediaDeviceInfo) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is BotOutputData) {
+    }    else if (value is Transcript) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    }    else if (value is PipecatMetricsData) {
+    }    else if (value is BotOutputData) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is PipecatMetrics) {
+    }    else if (value is PipecatMetricsData) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is LLMFunctionCallData) {
+    }    else if (value is PipecatMetrics) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is BotReadyData) {
+    }    else if (value is LLMFunctionCallData) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is Participant) {
+    }    else if (value is BotReadyData) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is MediaStreamTrack) {
+    }    else if (value is Participant) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is ParticipantTracks) {
+    }    else if (value is MediaStreamTrack) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is Tracks) {
+    }    else if (value is ParticipantTracks) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is BotLLMSearchResponseData) {
+    }    else if (value is Tracks) {
       buffer.putUint8(143);
+      writeValue(buffer, value.encode());
+    }    else if (value is BotLLMSearchResponseData) {
+      buffer.putUint8(144);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -532,34 +545,37 @@ class _PigeonCodec extends StandardMessageCodec {
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
       case 129: 
-        return PipecatClientOptions.decode(readValue(buffer)!);
+        final int? value = readValue(buffer) as int?;
+        return value == null ? null : TransportKind.values[value];
       case 130: 
-        return APIRequest.decode(readValue(buffer)!);
+        return PipecatClientOptions.decode(readValue(buffer)!);
       case 131: 
-        return SendTextOptions.decode(readValue(buffer)!);
+        return APIRequest.decode(readValue(buffer)!);
       case 132: 
-        return MediaDeviceInfo.decode(readValue(buffer)!);
+        return SendTextOptions.decode(readValue(buffer)!);
       case 133: 
-        return Transcript.decode(readValue(buffer)!);
+        return MediaDeviceInfo.decode(readValue(buffer)!);
       case 134: 
-        return BotOutputData.decode(readValue(buffer)!);
+        return Transcript.decode(readValue(buffer)!);
       case 135: 
-        return PipecatMetricsData.decode(readValue(buffer)!);
+        return BotOutputData.decode(readValue(buffer)!);
       case 136: 
-        return PipecatMetrics.decode(readValue(buffer)!);
+        return PipecatMetricsData.decode(readValue(buffer)!);
       case 137: 
-        return LLMFunctionCallData.decode(readValue(buffer)!);
+        return PipecatMetrics.decode(readValue(buffer)!);
       case 138: 
-        return BotReadyData.decode(readValue(buffer)!);
+        return LLMFunctionCallData.decode(readValue(buffer)!);
       case 139: 
-        return Participant.decode(readValue(buffer)!);
+        return BotReadyData.decode(readValue(buffer)!);
       case 140: 
-        return MediaStreamTrack.decode(readValue(buffer)!);
+        return Participant.decode(readValue(buffer)!);
       case 141: 
-        return ParticipantTracks.decode(readValue(buffer)!);
+        return MediaStreamTrack.decode(readValue(buffer)!);
       case 142: 
-        return Tracks.decode(readValue(buffer)!);
+        return ParticipantTracks.decode(readValue(buffer)!);
       case 143: 
+        return Tracks.decode(readValue(buffer)!);
+      case 144: 
         return BotLLMSearchResponseData.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);

@@ -3,17 +3,25 @@ import 'package:pigeon/pigeon.dart';
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/src/pipecat_api.g.dart',
   dartOptions: DartOptions(),
+  dartPackageName: 'pipecat_flutter',
   kotlinOut: 'android/src/main/kotlin/ai/pipecat/client/flutter/pipecat/PipecatApi.g.kt',
   kotlinOptions: KotlinOptions(package: 'ai.pipecat.client.flutter.pipecat'),
   swiftOut: 'ios/pipecat/Sources/pipecat/PipecatApi.g.swift',
   swiftOptions: SwiftOptions(),
 ))
 
+enum TransportKind {
+  daily,
+  smallWebRtc,
+}
+
 class PipecatClientOptions {
+  TransportKind kind;
   bool enableMic;
   bool enableCam;
 
   PipecatClientOptions({
+    required this.kind,
     this.enableMic = true,
     this.enableCam = false,
   });
@@ -21,7 +29,7 @@ class PipecatClientOptions {
 
 class APIRequest {
   String endpoint;
-  Map<String?, String?> headers;
+  Map<String, String> headers;
   String? requestData; // JSON encoded string for flexibility
   int? timeoutMs;
 

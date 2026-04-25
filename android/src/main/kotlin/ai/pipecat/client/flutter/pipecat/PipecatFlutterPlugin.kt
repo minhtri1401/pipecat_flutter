@@ -2,68 +2,72 @@ package ai.pipecat.client.flutter.pipecat
 
 import ai.pipecat.client.PipecatClient
 import ai.pipecat.client.PipecatEventCallbacks
-import ai.pipecat.client.Transport
 import ai.pipecat.client.TransportState
-import ai.pipecat.client.PipecatClientListener
+import ai.pipecat.client.daily.DailyTransport
+import ai.pipecat.client.daily.DailyTransportConnectParams
+import ai.pipecat.client.small_webrtc_transport.SmallWebRTCTransport
+import ai.pipecat.client.small_webrtc_transport.SmallWebRTCTransportConnectParams
 import ai.pipecat.client.types.*
+import android.content.Context
+import co.daily.model.MeetingToken
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.BinaryMessenger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
- * A dummy transport for Flutter that forwards everything to a real transport later if needed,
- * or just satisfies the compiler for now.
+ * Wrapper that pairs the active [PipecatClient] with its transport-specific
+ * connect-params type so [PipecatFlutterPlugin.connect] stays typed.
  */
-class FlutterPipecatTransport : Transport<String> {
-    private var listener: PipecatClientListener? = null
-    private var currentState: TransportState = TransportState.Disconnected
+internal sealed class ActiveClient {
+    data class Daily(
+        val client: PipecatClient<DailyTransport, DailyTransportConnectParams>,
+    ) : ActiveClient()
 
-    override fun setListener(listener: PipecatClientListener) {
-        this.listener = listener
+    data class SmallWebRTC(
+        val client: PipecatClient<SmallWebRTCTransport, SmallWebRTCTransportConnectParams>,
+    ) : ActiveClient()
+
+    fun core(): PipecatClient<*, *> = when (this) {
+        is Daily -> client
+        is SmallWebRTC -> client
     }
-
-    override fun connect(params: String) {
-        currentState = TransportState.Connected
-        listener?.onTransportStateChanged(currentState)
-    }
-
-    override fun disconnect() {
-        currentState = TransportState.Disconnected
-        listener?.onTransportStateChanged(currentState)
-    }
-
-    override fun sendMessage(message: PipecatMessage) {
-        // No-op for dummy transport
-    }
-
-    override fun getAllMics(): List<MediaDeviceInfo> = emptyList()
-    override fun getAllCams(): List<MediaDeviceInfo> = emptyList()
-    override fun getAllSpeakers(): List<MediaDeviceInfo> = emptyList()
-
-    override fun selectedMic(): MediaDeviceInfo? = null
-    override fun selectedCam(): MediaDeviceInfo? = null
-    override fun selectedSpeaker(): MediaDeviceInfo? = null
-
-    override fun updateMic(micId: String) {}
-    override fun updateCam(camId: String) {}
-    override fun updateSpeaker(speakerId: String) {}
-
-    override fun isMicEnabled(): Boolean = false
-    override fun isCamEnabled(): Boolean = false
-
-    override fun setMicEnabled(enabled: Boolean) {}
-    override fun setCamEnabled(enabled: Boolean) {}
-
-    override fun state(): TransportState = currentState
 }
+
+/** Parses the Dart-owned wire JSON into the SDK's typed Daily params. */
+internal fun parseDailyConnectParams(json: JSONObject): DailyTransportConnectParams =
+    DailyTransportConnectParams(
+        dailyRoom = json.getString("roomUrl"),
+        dailyToken = json.optString("token", "")
+            .takeIf { it.isNotEmpty() }
+            ?.let { MeetingToken(it) },
+    )
+
+/**
+ * Parses the Dart-owned wire JSON into the SDK's typed SmallWebRTC params.
+ *
+ * NOTE: `iceConfig` is intentionally null for 0.2.0; the upstream SDK's
+ * IceConfig type is structurally richer than the Dart-side `IceConfig`
+ * (List<IceServer> with optional credentials, not List<String>). Wire
+ * iceConfig end-to-end in a 0.2.x follow-up.
+ */
+internal fun parseSmallWebRTCConnectParams(json: JSONObject): SmallWebRTCTransportConnectParams =
+    SmallWebRTCTransportConnectParams(
+        webrtcRequestParams = APIRequest(endpoint = json.getString("webrtcUrl")),
+        iceConfig = null,
+    )
 
 /** PipecatFlutterPlugin */
 class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
-    private var client: PipecatClient<FlutterPipecatTransport, String>? = null
+    private var active: ActiveClient? = null
+    private var appContext: Context? = null
     private var callbacks: PipecatClientCallbacks? = null
     private val mainScope = CoroutineScope(Dispatchers.Main)
+
+    private val client: PipecatClient<*, *>?
+        get() = active?.core()
 
     private fun mapMediaDeviceInfo(it: ai.pipecat.client.types.MediaDeviceInfo, type: String): MediaDeviceInfo {
         return MediaDeviceInfo(
@@ -107,6 +111,7 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     }
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        appContext = flutterPluginBinding.applicationContext
         PipecatClientApi.setUp(flutterPluginBinding.binaryMessenger, this)
         callbacks = PipecatClientCallbacks(flutterPluginBinding.binaryMessenger)
     }
@@ -114,16 +119,27 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         PipecatClientApi.setUp(binding.binaryMessenger, null)
         callbacks = null
+        appContext = null
     }
 
     override fun initialize(options: PipecatClientOptions, callback: (Result<Unit>) -> Unit) {
+        val ctx = appContext ?: run {
+            callback(Result.failure(IllegalStateException("Plugin not attached to engine")))
+            return
+        }
         val sdkOptions = ai.pipecat.client.types.PipecatClientOptions(
             enableMic = options.enableMic,
             enableCam = options.enableCam
         )
-        val transport = FlutterPipecatTransport()
-        client = PipecatClient(transport, sdkOptions)
-        
+        active = when (options.kind) {
+            TransportKind.DAILY -> ActiveClient.Daily(
+                PipecatClient(DailyTransport(ctx), sdkOptions)
+            )
+            TransportKind.SMALL_WEB_RTC -> ActiveClient.SmallWebRTC(
+                PipecatClient(SmallWebRTCTransport(ctx), sdkOptions)
+            )
+        }
+
         client?.addCallbacks(object : PipecatEventCallbacks {
             override fun onConnected() {
                 mainScope.launch { callbacks?.onConnected {} }
@@ -368,7 +384,7 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     override fun startBot(request: APIRequest, callback: (Result<String>) -> Unit) {
         val sdkRequest = ai.pipecat.client.types.APIRequest(
             endpoint = request.endpoint,
-            headers = request.headers as Map<String, String>,
+            headers = request.headers,
             requestData = request.requestData,
             timeoutMs = request.timeoutMs
         )
@@ -385,7 +401,14 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     override fun connect(transportParamsJson: String, callback: (Result<Unit>) -> Unit) {
         mainScope.launch {
             try {
-                client?.connect(transportParamsJson)
+                val a = active ?: throw IllegalStateException("Not initialized")
+                val json = JSONObject(transportParamsJson)
+                when (a) {
+                    is ActiveClient.Daily ->
+                        a.client.connect(parseDailyConnectParams(json)).await()
+                    is ActiveClient.SmallWebRTC ->
+                        a.client.connect(parseSmallWebRTCConnectParams(json)).await()
+                }
                 callback(Result.success(Unit))
             } catch (e: Exception) {
                 callback(Result.failure(e))
@@ -396,7 +419,7 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     override fun startBotAndConnect(request: APIRequest, callback: (Result<Unit>) -> Unit) {
         val sdkRequest = ai.pipecat.client.types.APIRequest(
             endpoint = request.endpoint,
-            headers = request.headers as Map<String, String>,
+            headers = request.headers,
             requestData = request.requestData,
             timeoutMs = request.timeoutMs
         )
@@ -577,7 +600,7 @@ class PipecatFlutterPlugin : FlutterPlugin, PipecatClientApi {
     }
 
     override fun release(callback: (Result<Unit>) -> Unit) {
-        client = null
+        active = null
         callback(Result.success(Unit))
     }
 

@@ -13,7 +13,7 @@ void main() {
     late TestDefaultBinaryMessenger messenger;
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
       messenger = ServicesBinding.instance.defaultBinaryMessenger as TestDefaultBinaryMessenger;
     });
 
@@ -188,6 +188,56 @@ void main() {
       await sendCallback('onRemoteAudioLevel', [0.5, 'p1']);
       expect(events.first, (0.5, 'p1'));
     });
+
+    test('onServerMessage with invalid JSON emits to onMessageError', () async {
+      final serverMessages = <Value>[];
+      final errors = <String>[];
+      client.onServerMessage.listen(serverMessages.add);
+      client.onMessageError.listen(errors.add);
+
+      await sendCallback('onServerMessage', ['{not json']);
+
+      expect(serverMessages, isEmpty);
+      expect(errors.length, 1);
+      expect(errors.first.toLowerCase(), contains('parse'));
+    });
+
+    test('onServerMessage with valid JSON still emits to onServerMessage', () async {
+      final serverMessages = <Value>[];
+      final errors = <String>[];
+      client.onServerMessage.listen(serverMessages.add);
+      client.onMessageError.listen(errors.add);
+
+      await sendCallback('onServerMessage', ['{"foo":42}']);
+
+      expect(errors, isEmpty);
+      expect(serverMessages.length, 1);
+      expect(serverMessages.first, isA<ValueObject>());
+    });
+
+    test('callbacks after dispose do not throw', () async {
+      // Build a client with a unique suffix so we can exercise dispose in
+      // isolation from the shared `client` created in setUp. The test
+      // framework will fail the test if sendCallback throws post-dispose.
+      final localClient =
+          PipecatClient(transport: const DailyTransport(), messageChannelSuffix: '.dispose-race');
+      final events = <void>[];
+      localClient.onConnected.listen(events.add);
+
+      localClient.dispose();
+
+      // Simulate a native callback landing after dispose.
+      final channel =
+          'dev.flutter.pigeon.pipecat_flutter.PipecatClientCallbacks.onConnected.dispose-race';
+      await messenger.handlePlatformMessage(
+        channel,
+        codec.encodeMessage(<Object?>[]),
+        (ByteData? data) {},
+      );
+      await Future.delayed(Duration.zero);
+
+      expect(events, isEmpty); // handler torn down, no dispatch
+    });
   });
 
   group('New Task 8 Events', () {
@@ -196,7 +246,7 @@ void main() {
     late TestDefaultBinaryMessenger messenger;
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
       messenger = ServicesBinding.instance.defaultBinaryMessenger as TestDefaultBinaryMessenger;
     });
 

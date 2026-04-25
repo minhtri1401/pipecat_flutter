@@ -6,8 +6,8 @@ Pipecat client SDKs.
 
 ## Status
 
-`0.1.0` — first public release. The Dart API surface is stable; transport
-wiring is not. See [**Transport**](#transport) below before you integrate.
+`0.2.0` — Daily and SmallWebRTC transports are bundled. Pick one at
+construction; end-to-end media works without a native fork.
 
 ## Platform support
 
@@ -18,24 +18,34 @@ wiring is not. See [**Transport**](#transport) below before you integrate.
 
 ---
 
-## Transport
+## Known limitations
 
-> **Read this before using the plugin.**
->
-> This release ships a **no-op native transport stub** on both iOS and Android.
-> The Dart API, events, device management, function-call routing, and message
-> marshaling are all fully implemented and tested, but the native
-> `FlutterPipecatTransport` does not open a real media/data channel. Calling
-> `connect()` or `startBotAndConnect()` will succeed locally and emit
-> `onTransportStateChanged(connected)` without establishing a session with any
-> Pipecat server.
->
-> To use the plugin end-to-end today you must fork the plugin and replace
-> `FlutterPipecatTransport` with a real Pipecat transport (e.g. a Daily or
-> SmallWebRTC transport from
-> [`pipecat-client-ios`](https://github.com/pipecat-ai/pipecat-client-ios) /
-> [`pipecat-client-android`](https://github.com/pipecat-ai/pipecat-client-android)).
-> A pluggable transport API is on the roadmap for `0.2.0`.
+The plugin's Dart surface is a subset of the upstream Pipecat client SDKs.
+Functionality listed below is absent in 0.2.x and planned for follow-ups:
+
+- **`SmallWebRTCConnectParams.iceConfig`.** Wired through Dart but the
+  native plugin currently passes `null` to the SDK on both platforms.
+  The upstream `IceConfig` is structurally richer than the Dart-side
+  shape (`List<IceServer>` with optional credentials, not `List<String>`)
+  — full mapping coming in 0.2.x.
+- **`appendToContext(LLMContextMessage)`.** The upstream iOS/Android SDKs
+  expose an `appendToContext` method plus an `LLMContextMessage` type for
+  injecting into the conversation. Not exposed here yet.
+- **`enableScreenShare(bool)` / `isSharingScreen`.** The JS upstream
+  exposes these; no Dart equivalent in 0.1.x.
+- **`setLogLevel(PipecatLogLevel)`.** No way to control native SDK log
+  verbosity from Dart.
+- **Typed `ClientMessageData` response from `sendClientRequest`.**
+  Responses are exposed as raw `Value`; the upstream typed envelope
+  (`msgType` + `data`) is not surfaced.
+- **Typed device-error / user-mute callbacks.** Upstream exposes
+  `onDeviceError`, `onUserMuteStarted`, `onUserMuteStopped`; Dart clients
+  see only the aggregate `onError` / `onInputsUpdated`.
+- **Full `RTVIMessage` envelope on errors.** `onBackendError` / `onError`
+  flatten the envelope; the upstream `namespace`, `id`, and `data` fields
+  are dropped.
+- **Naming alignment.** Dart uses `registerFunctionHandler`; upstream
+  uses `registerFunctionCallHandler`. Aliases will ship in 0.2.0.
 
 ---
 
@@ -43,7 +53,7 @@ wiring is not. See [**Transport**](#transport) below before you integrate.
 
 ```yaml
 dependencies:
-  pipecat: ^0.1.0
+  pipecat: ^0.2.0
 ```
 
 Then:
@@ -90,41 +100,75 @@ calling `initDevices()`. Packages like
 
 ## Quick start
 
+Pick a transport at construction. Two are built in: `SmallWebRTCTransport`
+(lighter, recommended for getting started) and `DailyTransport`.
+
+### SmallWebRTC
+
 ```dart
 import 'package:pipecat/pipecat.dart';
 
-final client = PipecatClient();
+final client = PipecatClient(transport: const SmallWebRTCTransport());
 
-// Listen for core events
 client.onConnected.listen((_) => print('connected'));
 client.onBotReady.listen((data) => print('bot ready: ${data.version}'));
 client.onUserTranscript.listen((t) {
   if (t.finalStatus ?? false) print('user: ${t.text}');
 });
 client.onBotTranscript.listen((text) => print('bot: $text'));
-client.onError.listen((e) => print('error: $e'));
 
-// Initialize and connect
 await client.initialize(enableMic: true, enableCam: false);
 await client.initDevices();
-await client.startBotAndConnect(
-  endpoint: 'https://your-pipecat-endpoint.com/connect',
+
+await client.connect(
+  transportParams: const SmallWebRTCConnectParams(
+    webrtcUrl: 'https://your-pipecat-server.example/offer',
+  ),
 );
 
-// Send a text turn
 await client.sendText('Hello!');
 
-// React to hardware state changes
-client.hardwareState.addListener(() {
-  final hw = client.hardwareState.value;
-  print('mic=${hw.isMicEnabled} cam=${hw.isCamEnabled}');
-});
-
-// Tear down
 await client.disconnect();
 await client.release();
 client.dispose();
 ```
+
+### Daily
+
+```dart
+final client = PipecatClient(transport: const DailyTransport());
+await client.initialize();
+
+await client.connect(
+  transportParams: const DailyConnectParams(
+    roomUrl: 'https://your-org.daily.co/your-room',
+    token: 'meeting-token-from-your-server',
+  ),
+);
+```
+
+### Server-driven flow (`startBotAndConnect`)
+
+If you have a Pipecat server endpoint that returns transport params,
+let the plugin handle them:
+
+```dart
+final client = PipecatClient(transport: const DailyTransport());
+await client.initialize();
+await client.startBotAndConnect(
+  endpoint: 'https://your-pipecat-server.example/connect',
+);
+```
+
+### Picking the wrong params for the wrong transport
+
+Pairing rules are checked at runtime, before any platform-channel call:
+
+- `DailyTransport` ↔ `DailyConnectParams`
+- `SmallWebRTCTransport` ↔ `SmallWebRTCConnectParams`
+
+A mismatch throws `PipecatTransportMismatchException` — caught and exposed
+to your code so you can react without touching the network.
 
 ---
 
@@ -203,8 +247,8 @@ flutter run
 ```
 
 Edit the endpoint field in the app to point at your Pipecat server. The
-example will only actually exchange media once you have a real transport
-wired up (see [Transport](#transport)).
+example uses `SmallWebRTCTransport`; swap to `DailyTransport` plus
+`DailyConnectParams` if your server hosts a Daily room.
 
 ---
 

@@ -26,3 +26,16 @@ class PipecatFunctionCallException extends PipecatException {
   @override
   String toString() => 'PipecatFunctionCallException($message${code != null ? ', code: $code' : ''})';
 }
+
+/// Thrown when [PipecatConnectParams] passed to `connect()` doesn't pair
+/// with the [PipecatTransport] chosen at client construction.
+class PipecatTransportMismatchException extends PipecatException {
+  const PipecatTransportMismatchException(this.transportType, this.paramsType)
+      : super(
+          'Transport mismatch: $transportType cannot accept $paramsType',
+          code: 'transport-mismatch',
+        );
+
+  final Type transportType;
+  final Type paramsType;
+}

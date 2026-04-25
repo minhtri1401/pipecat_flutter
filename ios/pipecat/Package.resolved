@@ -1,0 +1,50 @@
+{
+  "pins" : [
+    {
+      "identity" : "daily-client-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/daily-co/daily-client-ios.git",
+      "state" : {
+        "revision" : "276f9aff6bbdb36d58e763b7c0d77167ab5f51ca",
+        "version" : "0.37.0"
+      }
+    },
+    {
+      "identity" : "pipecat-client-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pipecat-ai/pipecat-client-ios",
+      "state" : {
+        "revision" : "3d19581822fcc5462f9bf7532e20ed4e23b0b338",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "pipecat-client-ios-daily",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pipecat-ai/pipecat-client-ios-daily",
+      "state" : {
+        "revision" : "0000c51e13296fb71f80d9672e784f7d730ef2e6",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "pipecat-client-ios-small-webrtc",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pipecat-ai/pipecat-client-ios-small-webrtc",
+      "state" : {
+        "revision" : "4288581799b4626b00b86f209293de80a16acd43",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "webrtc",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/stasel/WebRTC",
+      "state" : {
+        "revision" : "5b2eb61cace7d62726b29a38b768b07d6bc55c45",
+        "version" : "134.0.0"
+      }
+    }
+  ],
+  "version" : 2
+}

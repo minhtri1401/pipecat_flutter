@@ -14,7 +14,7 @@ void main() {
     late TestDefaultBinaryMessenger messenger;
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
       messenger = ServicesBinding.instance.defaultBinaryMessenger as TestDefaultBinaryMessenger;
     });
 

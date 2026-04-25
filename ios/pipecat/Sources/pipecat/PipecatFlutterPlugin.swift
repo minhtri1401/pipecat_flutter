@@ -1,59 +1,45 @@
 import Flutter
 import UIKit
 import PipecatClientIOS
+import PipecatClientIOSDaily
+import PipecatClientIOSSmallWebrtc
 
-/// A dummy transport for Flutter that forwards everything to a real transport later if needed,
-/// or just satisfies the compiler for now.
-class FlutterPipecatTransport: Transport {
-    typealias ConnectParams = String
-    
-    var delegate: TransportDelegate?
-    var state: TransportState = .disconnected
-    
-    func setDelegate(_ delegate: TransportDelegate) {
-        self.delegate = delegate
+/// Maps Dart-owned wire JSON into the SDK's typed Daily params.
+func parseDailyConnectionParams(_ json: [String: Any]) throws -> DailyTransportConnectionParams {
+    guard let roomUrl = json["roomUrl"] as? String else {
+        throw PipecatPluginError.invalidParams("missing roomUrl")
     }
-    
-    func connect(params: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        state = .connected
-        delegate?.transport(self, didChangeState: state)
-        completion(.success(()))
-    }
-    
-    func disconnect(completion: @escaping (Result<Void, Error>) -> Void) {
-        state = .disconnected
-        delegate?.transport(self, didChangeState: state)
-        completion(.success(()))
-    }
-    
-    func sendMessage(_ message: PipecatMessage, completion: @escaping (Result<Void, Error>) -> Void) {
-        // No-op for dummy transport
-        completion(.success(()))
-    }
-    
-    func getAllMics() -> [PipecatClientIOS.MediaDeviceInfo] { [] }
-    func getAllCams() -> [PipecatClientIOS.MediaDeviceInfo] { [] }
-    func getAllSpeakers() -> [PipecatClientIOS.MediaDeviceInfo] { [] }
-    
-    func selectedMic() -> PipecatClientIOS.MediaDeviceInfo? { nil }
-    func selectedCam() -> PipecatClientIOS.MediaDeviceInfo? { nil }
-    func selectedSpeaker() -> PipecatClientIOS.MediaDeviceInfo? { nil }
-    
-    func updateMic(micId: String) {}
-    func updateCam(camId: String) {}
-    func updateSpeaker(speakerId: String) {}
-    
-    func isMicEnabled() -> Bool { false }
-    func isCamEnabled() -> Bool { false }
-    
-    func setMicEnabled(_ enabled: Bool) {}
-    func setCamEnabled(_ enabled: Bool) {}
+    return DailyTransportConnectionParams(
+        roomUrl: roomUrl,
+        token: json["token"] as? String,
+        joinSettings: nil
+    )
+}
 
-    func tracks() -> PipecatClientIOS.Tracks? { nil }
+/// Maps Dart-owned wire JSON into the SDK's typed SmallWebRTC params.
+///
+/// NOTE: `iceConfig` is intentionally nil for 0.2.0 (Dart-side `IceConfig`
+/// shape diverges from the SDK's `List<IceServer>` with credentials —
+/// follow-up in 0.2.x).
+func parseSmallWebRTCConnectionParams(_ json: [String: Any]) throws -> SmallWebRTCTransportConnectionParams {
+    guard let webrtcUrl = json["webrtcUrl"] as? String,
+          let url = URL(string: webrtcUrl) else {
+        throw PipecatPluginError.invalidParams("missing or invalid webrtcUrl")
+    }
+    return SmallWebRTCTransportConnectionParams(
+        webrtcRequestParams: APIRequest(endpoint: url),
+        iceConfig: nil
+    )
+}
+
+enum PipecatPluginError: Error {
+    case notInitialized
+    case invalidParams(String)
 }
 
 public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, PipecatClientDelegate {
     private var client: PipecatClient?
+    private var activeKind: TransportKind?
     private var callbacks: PipecatClientCallbacks?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -108,21 +94,28 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
 
     // MARK: - PipecatClientApi
 
-    public func initialize(options: PipecatClientOptions, completion: @escaping (Result<Void, Error>) -> Void) {
-        let transport = FlutterPipecatTransport()
+    func initialize(options: PipecatClientOptions, completion: @escaping (Result<Void, Error>) -> Void) {
+        let transport: Transport
+        switch options.kind {
+        case .daily:
+            transport = DailyTransport()
+        case .smallWebRtc:
+            transport = SmallWebRTCTransport(iceConfig: nil)
+        }
         let sdkOptions = PipecatClientIOS.PipecatClientOptions(
             transport: transport,
             enableMic: options.enableMic,
             enableCam: options.enableCam
         )
-        
+
+        self.activeKind = options.kind
         self.client = PipecatClient(options: sdkOptions)
         self.client?.delegate = self
-        
+
         completion(.success(()))
     }
 
-    public func initDevices(completion: @escaping (Result<Void, Error>) -> Void) {
+    func initDevices(completion: @escaping (Result<Void, Error>) -> Void) {
         client?.initDevices { result in
             switch result {
             case .success:
@@ -133,7 +126,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func startBot(request: APIRequest, completion: @escaping (Result<String, Error>) -> Void) {
+    func startBot(request: APIRequest, completion: @escaping (Result<String, Error>) -> Void) {
         guard let url = URL(string: request.endpoint) else {
             completion(.failure(NSError(domain: "Pipecat", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid endpoint URL"])))
             return
@@ -141,7 +134,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         
         let sdkRequest = PipecatClientIOS.APIRequest(
             endpoint: url,
-            headers: request.headers.compactMapValues { $0 } as [[String: String]],
+            headers: request.headers,
             requestData: request.requestData.flatMap { try? JSONDecoder().decode(Value.self, from: Data($0.utf8)) },
             timeout: request.timeoutMs.map { TimeInterval($0) / 1000.0 }
         )
@@ -162,10 +155,29 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func connect(transportParamsJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // iOS SDK expects TransportConnectionParams which is a protocol.
-        // For our dummy transport it's just a String.
-        client?.connect(transportParams: transportParamsJson) { result in
+    func connect(transportParamsJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let kind = activeKind, let client = client else {
+            completion(.failure(PipecatPluginError.notInitialized))
+            return
+        }
+        guard let data = transportParamsJson.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            completion(.failure(PipecatPluginError.invalidParams("not valid JSON")))
+            return
+        }
+        let params: any TransportConnectionParams
+        do {
+            switch kind {
+            case .daily:
+                params = try parseDailyConnectionParams(json)
+            case .smallWebRtc:
+                params = try parseSmallWebRTCConnectionParams(json)
+            }
+        } catch {
+            completion(.failure(error))
+            return
+        }
+        client.connect(transportParams: params) { result in
             switch result {
             case .success:
                 completion(.success(()))
@@ -175,7 +187,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func startBotAndConnect(request: APIRequest, completion: @escaping (Result<Void, Error>) -> Void) {
+    func startBotAndConnect(request: APIRequest, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let url = URL(string: request.endpoint) else {
             completion(.failure(NSError(domain: "Pipecat", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid endpoint URL"])))
             return
@@ -183,7 +195,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         
         let sdkRequest = PipecatClientIOS.APIRequest(
             endpoint: url,
-            headers: request.headers.compactMapValues { $0 } as [[String: String]],
+            headers: request.headers,
             requestData: request.requestData.flatMap { try? JSONDecoder().decode(Value.self, from: Data($0.utf8)) },
             timeout: request.timeoutMs.map { TimeInterval($0) / 1000.0 }
         )
@@ -198,7 +210,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func disconnect(completion: @escaping (Result<Void, Error>) -> Void) {
+    func disconnect(completion: @escaping (Result<Void, Error>) -> Void) {
         client?.disconnect { result in
             switch result {
             case .success:
@@ -209,11 +221,11 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func disconnectBot() throws {
+    func disconnectBot() throws {
         try client?.disconnectBot()
     }
 
-    public func sendClientMessage(msgType: String, dataJson: String?, completion: @escaping (Result<Void, Error>) -> Void) {
+    func sendClientMessage(msgType: String, dataJson: String?, completion: @escaping (Result<Void, Error>) -> Void) {
         let data = dataJson.flatMap { try? JSONDecoder().decode(Value.self, from: Data($0.utf8)) }
         do {
             try client?.sendClientMessage(msgType: msgType, data: data)
@@ -223,7 +235,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func sendClientRequest(msgType: String, dataJson: String?, completion: @escaping (Result<String, Error>) -> Void) {
+    func sendClientRequest(msgType: String, dataJson: String?, completion: @escaping (Result<String, Error>) -> Void) {
         let data = dataJson.flatMap { try? JSONDecoder().decode(Value.self, from: Data($0.utf8)) }
         client?.sendClientRequest(msgType: msgType, data: data) { result in
             switch result {
@@ -241,7 +253,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func sendText(content: String, options: SendTextOptions?, completion: @escaping (Result<Void, Error>) -> Void) {
+    func sendText(content: String, options: SendTextOptions?, completion: @escaping (Result<Void, Error>) -> Void) {
         let sdkOptions = options.map {
             PipecatClientIOS.SendTextOptions(
                 runImmediately: $0.runImmediately ?? true,
@@ -256,43 +268,43 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func getAllMics() throws -> [MediaDeviceInfo?] {
+    func getAllMics() throws -> [MediaDeviceInfo?] {
         return client?.getAllMics().map {
             mapMediaDeviceInfo($0, type: "mic")
         } ?? []
     }
 
-    public func getAllCams() throws -> [MediaDeviceInfo?] {
+    func getAllCams() throws -> [MediaDeviceInfo?] {
         return client?.getAllCams().map {
             mapMediaDeviceInfo($0, type: "cam")
         } ?? []
     }
 
-    public func getAllSpeakers() throws -> [MediaDeviceInfo?] {
+    func getAllSpeakers() throws -> [MediaDeviceInfo?] {
         return client?.getAllSpeakers().map {
             mapMediaDeviceInfo($0, type: "speaker")
         } ?? []
     }
 
-    public func selectedMic() throws -> MediaDeviceInfo? {
+    func selectedMic() throws -> MediaDeviceInfo? {
         return client?.selectedMic.map {
             mapMediaDeviceInfo($0, type: "mic")
         }
     }
 
-    public func selectedCam() throws -> MediaDeviceInfo? {
+    func selectedCam() throws -> MediaDeviceInfo? {
         return client?.selectedCam.map {
             mapMediaDeviceInfo($0, type: "cam")
         }
     }
 
-    public func selectedSpeaker() throws -> MediaDeviceInfo? {
+    func selectedSpeaker() throws -> MediaDeviceInfo? {
         return client?.selectedSpeaker.map {
             mapMediaDeviceInfo($0, type: "speaker")
         }
     }
 
-    public func updateMic(micId: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateMic(micId: String, completion: @escaping (Result<Void, Error>) -> Void) {
         client?.updateMic(micId: .init(rawValue: micId)) { result in
             switch result {
             case .success:
@@ -303,7 +315,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func updateCam(camId: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateCam(camId: String, completion: @escaping (Result<Void, Error>) -> Void) {
         client?.updateCam(camId: .init(rawValue: camId)) { result in
             switch result {
             case .success:
@@ -314,7 +326,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func updateSpeaker(speakerId: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    func updateSpeaker(speakerId: String, completion: @escaping (Result<Void, Error>) -> Void) {
         client?.updateSpeaker(speakerId: .init(rawValue: speakerId)) { result in
             switch result {
             case .success:
@@ -325,7 +337,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func enableMic(enable: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func enableMic(enable: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
         client?.enableMic(enable: enable) { result in
             switch result {
             case .success:
@@ -336,7 +348,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func enableCam(enable: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    func enableCam(enable: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
         client?.enableCam(enable: enable) { result in
             switch result {
             case .success:
@@ -347,34 +359,47 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
         }
     }
 
-    public func isMicEnabled() throws -> Bool {
+    func isMicEnabled() throws -> Bool {
         return client?.isMicEnabled ?? false
     }
 
-    public func isCamEnabled() throws -> Bool {
+    func isCamEnabled() throws -> Bool {
         return client?.isCamEnabled ?? false
     }
 
-    public func getTracks() throws -> Tracks {
+    func getTracks() throws -> Tracks {
         return mapTracks(client?.tracks)
     }
 
-    public func getState() throws -> String {
+    func getState() throws -> String {
         return client?.state.rawValue ?? "disconnected"
     }
 
-    public func getVersion() throws -> String {
+    func getVersion() throws -> String {
         return "unknown"
     }
 
-    public func release(completion: @escaping (Result<Void, Error>) -> Void) {
+    func release(completion: @escaping (Result<Void, Error>) -> Void) {
         client = nil
         completion(.success(()))
     }
 
-    public func sendAction(dataJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // Stub: forward as a generic client message
-        completion(.success(()))
+    func sendAction(dataJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let client = client else {
+            completion(.failure(NSError(
+                domain: "Pipecat",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "PipecatClient not initialized"]
+            )))
+            return
+        }
+        let data = (try? JSONDecoder().decode(Value.self, from: Data(dataJson.utf8)))
+        do {
+            try client.sendClientMessage(msgType: "action", data: data)
+            completion(.success(()))
+        } catch {
+            completion(.failure(error))
+        }
     }
 
     // MARK: - PipecatClientDelegate

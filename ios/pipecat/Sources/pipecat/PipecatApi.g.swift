@@ -68,24 +68,33 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   return value as! T?
 }
 
+enum TransportKind: Int {
+  case daily = 0
+  case smallWebRtc = 1
+}
+
 /// Generated class from Pigeon that represents data sent in messages.
 struct PipecatClientOptions {
+  var kind: TransportKind
   var enableMic: Bool
   var enableCam: Bool
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> PipecatClientOptions? {
-    let enableMic = pigeonVar_list[0] as! Bool
-    let enableCam = pigeonVar_list[1] as! Bool
+    let kind = pigeonVar_list[0] as! TransportKind
+    let enableMic = pigeonVar_list[1] as! Bool
+    let enableCam = pigeonVar_list[2] as! Bool
 
     return PipecatClientOptions(
+      kind: kind,
       enableMic: enableMic,
       enableCam: enableCam
     )
   }
   func toList() -> [Any?] {
     return [
+      kind,
       enableMic,
       enableCam,
     ]
@@ -95,7 +104,7 @@ struct PipecatClientOptions {
 /// Generated class from Pigeon that represents data sent in messages.
 struct APIRequest {
   var endpoint: String
-  var headers: [String?: String?]
+  var headers: [String: String]
   var requestData: String? = nil
   var timeoutMs: Int64? = nil
 
@@ -103,7 +112,7 @@ struct APIRequest {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> APIRequest? {
     let endpoint = pigeonVar_list[0] as! String
-    let headers = pigeonVar_list[1] as! [String?: String?]
+    let headers = pigeonVar_list[1] as! [String: String]
     let requestData: String? = nilOrValue(pigeonVar_list[2])
     let timeoutMs: Int64? = nilOrValue(pigeonVar_list[3])
 
@@ -476,34 +485,40 @@ private class PipecatApiPigeonCodecReader: FlutterStandardReader {
   override func readValue(ofType type: UInt8) -> Any? {
     switch type {
     case 129:
-      return PipecatClientOptions.fromList(self.readValue() as! [Any?])
+      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
+      if let enumResultAsInt = enumResultAsInt {
+        return TransportKind(rawValue: enumResultAsInt)
+      }
+      return nil
     case 130:
-      return APIRequest.fromList(self.readValue() as! [Any?])
+      return PipecatClientOptions.fromList(self.readValue() as! [Any?])
     case 131:
-      return SendTextOptions.fromList(self.readValue() as! [Any?])
+      return APIRequest.fromList(self.readValue() as! [Any?])
     case 132:
-      return MediaDeviceInfo.fromList(self.readValue() as! [Any?])
+      return SendTextOptions.fromList(self.readValue() as! [Any?])
     case 133:
-      return Transcript.fromList(self.readValue() as! [Any?])
+      return MediaDeviceInfo.fromList(self.readValue() as! [Any?])
     case 134:
-      return BotOutputData.fromList(self.readValue() as! [Any?])
+      return Transcript.fromList(self.readValue() as! [Any?])
     case 135:
-      return PipecatMetricsData.fromList(self.readValue() as! [Any?])
+      return BotOutputData.fromList(self.readValue() as! [Any?])
     case 136:
-      return PipecatMetrics.fromList(self.readValue() as! [Any?])
+      return PipecatMetricsData.fromList(self.readValue() as! [Any?])
     case 137:
-      return LLMFunctionCallData.fromList(self.readValue() as! [Any?])
+      return PipecatMetrics.fromList(self.readValue() as! [Any?])
     case 138:
-      return BotReadyData.fromList(self.readValue() as! [Any?])
+      return LLMFunctionCallData.fromList(self.readValue() as! [Any?])
     case 139:
-      return Participant.fromList(self.readValue() as! [Any?])
+      return BotReadyData.fromList(self.readValue() as! [Any?])
     case 140:
-      return MediaStreamTrack.fromList(self.readValue() as! [Any?])
+      return Participant.fromList(self.readValue() as! [Any?])
     case 141:
-      return ParticipantTracks.fromList(self.readValue() as! [Any?])
+      return MediaStreamTrack.fromList(self.readValue() as! [Any?])
     case 142:
-      return Tracks.fromList(self.readValue() as! [Any?])
+      return ParticipantTracks.fromList(self.readValue() as! [Any?])
     case 143:
+      return Tracks.fromList(self.readValue() as! [Any?])
+    case 144:
       return BotLLMSearchResponseData.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -513,50 +528,53 @@ private class PipecatApiPigeonCodecReader: FlutterStandardReader {
 
 private class PipecatApiPigeonCodecWriter: FlutterStandardWriter {
   override func writeValue(_ value: Any) {
-    if let value = value as? PipecatClientOptions {
+    if let value = value as? TransportKind {
       super.writeByte(129)
-      super.writeValue(value.toList())
-    } else if let value = value as? APIRequest {
+      super.writeValue(value.rawValue)
+    } else if let value = value as? PipecatClientOptions {
       super.writeByte(130)
       super.writeValue(value.toList())
-    } else if let value = value as? SendTextOptions {
+    } else if let value = value as? APIRequest {
       super.writeByte(131)
       super.writeValue(value.toList())
-    } else if let value = value as? MediaDeviceInfo {
+    } else if let value = value as? SendTextOptions {
       super.writeByte(132)
       super.writeValue(value.toList())
-    } else if let value = value as? Transcript {
+    } else if let value = value as? MediaDeviceInfo {
       super.writeByte(133)
       super.writeValue(value.toList())
-    } else if let value = value as? BotOutputData {
+    } else if let value = value as? Transcript {
       super.writeByte(134)
       super.writeValue(value.toList())
-    } else if let value = value as? PipecatMetricsData {
+    } else if let value = value as? BotOutputData {
       super.writeByte(135)
       super.writeValue(value.toList())
-    } else if let value = value as? PipecatMetrics {
+    } else if let value = value as? PipecatMetricsData {
       super.writeByte(136)
       super.writeValue(value.toList())
-    } else if let value = value as? LLMFunctionCallData {
+    } else if let value = value as? PipecatMetrics {
       super.writeByte(137)
       super.writeValue(value.toList())
-    } else if let value = value as? BotReadyData {
+    } else if let value = value as? LLMFunctionCallData {
       super.writeByte(138)
       super.writeValue(value.toList())
-    } else if let value = value as? Participant {
+    } else if let value = value as? BotReadyData {
       super.writeByte(139)
       super.writeValue(value.toList())
-    } else if let value = value as? MediaStreamTrack {
+    } else if let value = value as? Participant {
       super.writeByte(140)
       super.writeValue(value.toList())
-    } else if let value = value as? ParticipantTracks {
+    } else if let value = value as? MediaStreamTrack {
       super.writeByte(141)
       super.writeValue(value.toList())
-    } else if let value = value as? Tracks {
+    } else if let value = value as? ParticipantTracks {
       super.writeByte(142)
       super.writeValue(value.toList())
-    } else if let value = value as? BotLLMSearchResponseData {
+    } else if let value = value as? Tracks {
       super.writeByte(143)
+      super.writeValue(value.toList())
+    } else if let value = value as? BotLLMSearchResponseData {
+      super.writeByte(144)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
