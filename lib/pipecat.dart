@@ -19,3 +19,5 @@ export 'src/types/transcript.dart';
 export 'src/types/tracks.dart';
 export 'src/types/hardware_state.dart';
 export 'src/types/search_response.dart';
+export 'src/types/pipecat_connect_params.dart';
+export 'src/types/pipecat_transport.dart';
