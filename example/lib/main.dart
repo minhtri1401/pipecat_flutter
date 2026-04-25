@@ -51,7 +51,7 @@ class _PipecatExampleState extends State<PipecatExample> {
   @override
   void initState() {
     super.initState();
-    _client = PipecatClient();
+    _client = PipecatClient(transport: const SmallWebRTCTransport());
     _setupListeners();
     _registerFunctions();
   }

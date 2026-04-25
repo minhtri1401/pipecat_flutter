@@ -19,6 +19,7 @@ import 'types/tracks.dart';
 import 'types/llm_function_call_data.dart';
 import 'types/search_response.dart';
 import 'types/hardware_state.dart';
+import 'types/pipecat_transport.dart';
 
 /// Function signature for LLM function call handlers.
 ///
@@ -27,9 +28,12 @@ typedef LLMFunctionHandler = Future<Value> Function(LLMFunctionCallData data);
 
 /// A developer-friendly Dart interface for the Pipecat client.
 class PipecatClient {
-  PipecatClient(
-      {String messageChannelSuffix = '', BinaryMessenger? binaryMessenger})
-      : _api = pigeon.PipecatClientApi(
+  PipecatClient({
+    required PipecatTransport transport,
+    String messageChannelSuffix = '',
+    BinaryMessenger? binaryMessenger,
+  })  : _transport = transport,
+        _api = pigeon.PipecatClientApi(
             binaryMessenger: binaryMessenger,
             messageChannelSuffix: messageChannelSuffix) {
     _callbackHandler = _PipecatClientCallbackHandler(this);
@@ -39,10 +43,26 @@ class PipecatClient {
     _hardwareState = ValueNotifier(const HardwareState());
   }
 
+  /// Test-only constructor that injects a pre-built [pigeon.PipecatClientApi].
+  /// Use this when unit-testing client behavior with a mocked api.
+  @visibleForTesting
+  PipecatClient.withApi({
+    required PipecatTransport transport,
+    required pigeon.PipecatClientApi api,
+  })  : _transport = transport,
+        _api = api {
+    _callbackHandler = _PipecatClientCallbackHandler(this);
+    _hardwareState = ValueNotifier(const HardwareState());
+  }
+
+  final PipecatTransport _transport;
   final pigeon.PipecatClientApi _api;
   late final _PipecatClientCallbackHandler _callbackHandler;
   late final ValueNotifier<HardwareState> _hardwareState;
   bool _disposed = false;
+
+  /// The transport selected at construction. Read-only.
+  PipecatTransport get transport => _transport;
 
   /// The current hardware state.
   ValueNotifier<HardwareState> get hardwareState => _hardwareState;
@@ -171,8 +191,13 @@ class PipecatClient {
     bool enableCam = false,
   }) async {
     _ensureAlive();
+    final pigeon.TransportKind kind = switch (_transport) {
+      DailyTransport() => pigeon.TransportKind.daily,
+      SmallWebRTCTransport() => pigeon.TransportKind.smallWebRtc,
+    };
     try {
       await _api.initialize(pigeon.PipecatClientOptions(
+        kind: kind,
         enableMic: enableMic,
         enableCam: enableCam,
       ));

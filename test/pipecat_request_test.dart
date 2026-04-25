@@ -15,7 +15,7 @@ void main() {
         'dev.flutter.pigeon.pipecat_flutter.PipecatClientApi.sendClientRequest';
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
       messenger = ServicesBinding.instance.defaultBinaryMessenger
           as TestDefaultBinaryMessenger;
     });

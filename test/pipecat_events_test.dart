@@ -13,7 +13,7 @@ void main() {
     late TestDefaultBinaryMessenger messenger;
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
       messenger = ServicesBinding.instance.defaultBinaryMessenger as TestDefaultBinaryMessenger;
     });
 
@@ -220,7 +220,7 @@ void main() {
       // isolation from the shared `client` created in setUp. The test
       // framework will fail the test if sendCallback throws post-dispose.
       final localClient =
-          PipecatClient(messageChannelSuffix: '.dispose-race');
+          PipecatClient(transport: const DailyTransport(), messageChannelSuffix: '.dispose-race');
       final events = <void>[];
       localClient.onConnected.listen(events.add);
 
@@ -246,7 +246,7 @@ void main() {
     late TestDefaultBinaryMessenger messenger;
 
     setUp(() {
-      client = PipecatClient();
+      client = PipecatClient(transport: const DailyTransport());
       messenger = ServicesBinding.instance.defaultBinaryMessenger as TestDefaultBinaryMessenger;
     });
 
