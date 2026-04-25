@@ -10,11 +10,18 @@ import 'package:pigeon/pigeon.dart';
   swiftOptions: SwiftOptions(),
 ))
 
+enum TransportKind {
+  daily,
+  smallWebRtc,
+}
+
 class PipecatClientOptions {
+  TransportKind kind;
   bool enableMic;
   bool enableCam;
 
   PipecatClientOptions({
+    required this.kind,
     this.enableMic = true,
     this.enableCam = false,
   });

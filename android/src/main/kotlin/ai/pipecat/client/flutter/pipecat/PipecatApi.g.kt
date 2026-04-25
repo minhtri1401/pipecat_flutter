@@ -49,21 +49,35 @@ class FlutterError (
   val details: Any? = null
 ) : Throwable()
 
+enum class TransportKind(val raw: Int) {
+  DAILY(0),
+  SMALL_WEB_RTC(1);
+
+  companion object {
+    fun ofRaw(raw: Int): TransportKind? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
 /** Generated class from Pigeon that represents data sent in messages. */
 data class PipecatClientOptions (
+  val kind: TransportKind,
   val enableMic: Boolean,
   val enableCam: Boolean
 )
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): PipecatClientOptions {
-      val enableMic = pigeonVar_list[0] as Boolean
-      val enableCam = pigeonVar_list[1] as Boolean
-      return PipecatClientOptions(enableMic, enableCam)
+      val kind = pigeonVar_list[0] as TransportKind
+      val enableMic = pigeonVar_list[1] as Boolean
+      val enableCam = pigeonVar_list[2] as Boolean
+      return PipecatClientOptions(kind, enableMic, enableCam)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
+      kind,
       enableMic,
       enableCam,
     )
@@ -400,76 +414,81 @@ private open class PipecatApiPigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
       129.toByte() -> {
-        return (readValue(buffer) as? List<Any?>)?.let {
-          PipecatClientOptions.fromList(it)
+        return (readValue(buffer) as Long?)?.let {
+          TransportKind.ofRaw(it.toInt())
         }
       }
       130.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          APIRequest.fromList(it)
+          PipecatClientOptions.fromList(it)
         }
       }
       131.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          SendTextOptions.fromList(it)
+          APIRequest.fromList(it)
         }
       }
       132.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          MediaDeviceInfo.fromList(it)
+          SendTextOptions.fromList(it)
         }
       }
       133.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          Transcript.fromList(it)
+          MediaDeviceInfo.fromList(it)
         }
       }
       134.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          BotOutputData.fromList(it)
+          Transcript.fromList(it)
         }
       }
       135.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PipecatMetricsData.fromList(it)
+          BotOutputData.fromList(it)
         }
       }
       136.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PipecatMetrics.fromList(it)
+          PipecatMetricsData.fromList(it)
         }
       }
       137.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          LLMFunctionCallData.fromList(it)
+          PipecatMetrics.fromList(it)
         }
       }
       138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          BotReadyData.fromList(it)
+          LLMFunctionCallData.fromList(it)
         }
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          Participant.fromList(it)
+          BotReadyData.fromList(it)
         }
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          MediaStreamTrack.fromList(it)
+          Participant.fromList(it)
         }
       }
       141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ParticipantTracks.fromList(it)
+          MediaStreamTrack.fromList(it)
         }
       }
       142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          Tracks.fromList(it)
+          ParticipantTracks.fromList(it)
         }
       }
       143.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          Tracks.fromList(it)
+        }
+      }
+      144.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           BotLLMSearchResponseData.fromList(it)
         }
@@ -479,64 +498,68 @@ private open class PipecatApiPigeonCodec : StandardMessageCodec() {
   }
   override fun writeValue(stream: ByteArrayOutputStream, value: Any?)   {
     when (value) {
-      is PipecatClientOptions -> {
+      is TransportKind -> {
         stream.write(129)
-        writeValue(stream, value.toList())
+        writeValue(stream, value.raw)
       }
-      is APIRequest -> {
+      is PipecatClientOptions -> {
         stream.write(130)
         writeValue(stream, value.toList())
       }
-      is SendTextOptions -> {
+      is APIRequest -> {
         stream.write(131)
         writeValue(stream, value.toList())
       }
-      is MediaDeviceInfo -> {
+      is SendTextOptions -> {
         stream.write(132)
         writeValue(stream, value.toList())
       }
-      is Transcript -> {
+      is MediaDeviceInfo -> {
         stream.write(133)
         writeValue(stream, value.toList())
       }
-      is BotOutputData -> {
+      is Transcript -> {
         stream.write(134)
         writeValue(stream, value.toList())
       }
-      is PipecatMetricsData -> {
+      is BotOutputData -> {
         stream.write(135)
         writeValue(stream, value.toList())
       }
-      is PipecatMetrics -> {
+      is PipecatMetricsData -> {
         stream.write(136)
         writeValue(stream, value.toList())
       }
-      is LLMFunctionCallData -> {
+      is PipecatMetrics -> {
         stream.write(137)
         writeValue(stream, value.toList())
       }
-      is BotReadyData -> {
+      is LLMFunctionCallData -> {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is Participant -> {
+      is BotReadyData -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is MediaStreamTrack -> {
+      is Participant -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is ParticipantTracks -> {
+      is MediaStreamTrack -> {
         stream.write(141)
         writeValue(stream, value.toList())
       }
-      is Tracks -> {
+      is ParticipantTracks -> {
         stream.write(142)
         writeValue(stream, value.toList())
       }
-      is BotLLMSearchResponseData -> {
+      is Tracks -> {
         stream.write(143)
+        writeValue(stream, value.toList())
+      }
+      is BotLLMSearchResponseData -> {
+        stream.write(144)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
