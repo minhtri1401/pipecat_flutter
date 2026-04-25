@@ -55,6 +55,8 @@ android {
         testImplementation 'org.mockito:mockito-core:5.10.0'
         
         implementation 'ai.pipecat:client:1.2.0'
+        implementation 'ai.pipecat:daily-transport:1.2.0'
+        implementation 'ai.pipecat:small-webrtc-transport:1.2.0'
         implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
         implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
         implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
