@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'pipecat'
-  s.version          = '0.1.0'
+  s.version          = '0.2.0'
   s.summary          = 'Flutter plugin for Pipecat real-time AI voice and multimodal agents.'
   s.description      = <<-DESC
 Dart bindings for the native Pipecat iOS client SDK. Provides a type-safe
@@ -17,6 +17,8 @@ Flutter API over the Pipecat real-time AI voice and multimodal platform.
   s.source_files     = 'pipecat/Sources/pipecat/**/*'
   s.dependency 'Flutter'
   s.dependency 'PipecatClientIOS', '~> 1.2.0'
+  s.dependency 'PipecatClientIOSDaily', '~> 1.2.0'
+  s.dependency 'PipecatClientIOSSmallWebrtc', '~> 1.2.0'
   s.platform         = :ios, '13.0'
 
   s.pod_target_xcconfig = {

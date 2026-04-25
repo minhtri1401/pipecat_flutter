@@ -9,14 +9,22 @@ let package = Package(
     products: [
         .library(name: "pipecat", targets: ["pipecat"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/pipecat-ai/pipecat-client-ios",             from: "1.2.0"),
+        .package(url: "https://github.com/pipecat-ai/pipecat-client-ios-daily",       from: "1.2.0"),
+        .package(url: "https://github.com/pipecat-ai/pipecat-client-ios-small-webrtc", from: "1.2.0"),
+    ],
     targets: [
         .target(
             name: "pipecat",
-            dependencies: [],
+            dependencies: [
+                .product(name: "PipecatClientIOS",          package: "pipecat-client-ios"),
+                .product(name: "PipecatClientIOSDaily",     package: "pipecat-client-ios-daily"),
+                .product(name: "PipecatClientIOSSmallWebrtc", package: "pipecat-client-ios-small-webrtc"),
+            ],
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
             ]
-        )
+        ),
     ]
 )

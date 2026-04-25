@@ -1,66 +1,40 @@
 import Flutter
 import UIKit
 import PipecatClientIOS
+import PipecatClientIOSDaily
+import PipecatClientIOSSmallWebrtc
 
-/// A dummy transport for Flutter that forwards everything to a real transport later if needed,
-/// or just satisfies the compiler for now.
-class FlutterPipecatTransport: Transport {
-    typealias ConnectParams = String
-    
-    var delegate: TransportDelegate?
-    var state: TransportState = .disconnected
-    
-    func setDelegate(_ delegate: TransportDelegate) {
-        self.delegate = delegate
-    }
-    
-    func connect(params: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        let message =
-            "FlutterPipecatTransport is a no-op stub. Replace it with a real " +
-            "Pipecat transport (e.g. Daily / SmallWebRTC) before calling " +
-            "connect() or startBotAndConnect(). See the plugin README " +
-            "\"Transport\" section."
-        completion(.failure(NSError(
-            domain: "Pipecat",
-            code: -1,
-            userInfo: [NSLocalizedDescriptionKey: message]
-        )))
-    }
-    
-    func disconnect(completion: @escaping (Result<Void, Error>) -> Void) {
-        state = .disconnected
-        delegate?.transport(self, didChangeState: state)
-        completion(.success(()))
-    }
-    
-    func sendMessage(_ message: PipecatMessage, completion: @escaping (Result<Void, Error>) -> Void) {
-        // No-op for dummy transport
-        completion(.success(()))
-    }
-    
-    func getAllMics() -> [PipecatClientIOS.MediaDeviceInfo] { [] }
-    func getAllCams() -> [PipecatClientIOS.MediaDeviceInfo] { [] }
-    func getAllSpeakers() -> [PipecatClientIOS.MediaDeviceInfo] { [] }
-    
-    func selectedMic() -> PipecatClientIOS.MediaDeviceInfo? { nil }
-    func selectedCam() -> PipecatClientIOS.MediaDeviceInfo? { nil }
-    func selectedSpeaker() -> PipecatClientIOS.MediaDeviceInfo? { nil }
-    
-    func updateMic(micId: String) {}
-    func updateCam(camId: String) {}
-    func updateSpeaker(speakerId: String) {}
-    
-    func isMicEnabled() -> Bool { false }
-    func isCamEnabled() -> Bool { false }
-    
-    func setMicEnabled(_ enabled: Bool) {}
-    func setCamEnabled(_ enabled: Bool) {}
+/// Maps Dart-owned wire JSON into the SDK's typed Daily params.
+func parseDailyConnectionParams(_ json: [String: Any]) -> DailyTransportConnectionParams {
+    DailyTransportConnectionParams(
+        roomUrl: json["roomUrl"] as? String ?? "",
+        token: json["token"] as? String,
+        joinSettings: nil
+    )
+}
 
-    func tracks() -> PipecatClientIOS.Tracks? { nil }
+/// Maps Dart-owned wire JSON into the SDK's typed SmallWebRTC params.
+///
+/// NOTE: `iceConfig` is intentionally nil for 0.2.0 (Dart-side `IceConfig`
+/// shape diverges from the SDK's `List<IceServer>` with credentials —
+/// follow-up in 0.2.x).
+func parseSmallWebRTCConnectionParams(_ json: [String: Any]) -> SmallWebRTCTransportConnectionParams {
+    let webrtcUrl = (json["webrtcUrl"] as? String) ?? ""
+    let request = APIRequest(endpoint: URL(string: webrtcUrl) ?? URL(string: "about:blank")!)
+    return SmallWebRTCTransportConnectionParams(
+        webrtcRequestParams: request,
+        iceConfig: nil
+    )
+}
+
+enum PipecatPluginError: Error {
+    case notInitialized
+    case invalidParams(String)
 }
 
 public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, PipecatClientDelegate {
     private var client: PipecatClient?
+    private var activeKind: TransportKind?
     private var callbacks: PipecatClientCallbacks?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -116,16 +90,23 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
     // MARK: - PipecatClientApi
 
     public func initialize(options: PipecatClientOptions, completion: @escaping (Result<Void, Error>) -> Void) {
-        let transport = FlutterPipecatTransport()
+        let transport: Transport
+        switch options.kind {
+        case .daily:
+            transport = DailyTransport()
+        case .smallWebRtc:
+            transport = SmallWebRTCTransport(iceConfig: nil)
+        }
         let sdkOptions = PipecatClientIOS.PipecatClientOptions(
             transport: transport,
             enableMic: options.enableMic,
             enableCam: options.enableCam
         )
-        
+
+        self.activeKind = options.kind
         self.client = PipecatClient(options: sdkOptions)
         self.client?.delegate = self
-        
+
         completion(.success(()))
     }
 
@@ -170,9 +151,23 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
     }
 
     public func connect(transportParamsJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // iOS SDK expects TransportConnectionParams which is a protocol.
-        // For our dummy transport it's just a String.
-        client?.connect(transportParams: transportParamsJson) { result in
+        guard let kind = activeKind else {
+            completion(.failure(PipecatPluginError.notInitialized))
+            return
+        }
+        guard let data = transportParamsJson.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            completion(.failure(PipecatPluginError.invalidParams("not valid JSON")))
+            return
+        }
+        let params: any TransportConnectionParams
+        switch kind {
+        case .daily:
+            params = parseDailyConnectionParams(json)
+        case .smallWebRtc:
+            params = parseSmallWebRTCConnectionParams(json)
+        }
+        client?.connect(transportParams: params) { result in
             switch result {
             case .success:
                 completion(.success(()))
