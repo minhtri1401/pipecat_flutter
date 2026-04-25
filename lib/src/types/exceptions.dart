@@ -38,8 +38,4 @@ class PipecatTransportMismatchException extends PipecatException {
 
   final Type transportType;
   final Type paramsType;
-
-  @override
-  String toString() =>
-      'PipecatTransportMismatchException($message, code: $code)';
 }

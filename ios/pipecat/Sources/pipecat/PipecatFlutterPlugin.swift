@@ -18,11 +18,13 @@ func parseDailyConnectionParams(_ json: [String: Any]) -> DailyTransportConnecti
 /// NOTE: `iceConfig` is intentionally nil for 0.2.0 (Dart-side `IceConfig`
 /// shape diverges from the SDK's `List<IceServer>` with credentials —
 /// follow-up in 0.2.x).
-func parseSmallWebRTCConnectionParams(_ json: [String: Any]) -> SmallWebRTCTransportConnectionParams {
-    let webrtcUrl = (json["webrtcUrl"] as? String) ?? ""
-    let request = APIRequest(endpoint: URL(string: webrtcUrl) ?? URL(string: "about:blank")!)
+func parseSmallWebRTCConnectionParams(_ json: [String: Any]) throws -> SmallWebRTCTransportConnectionParams {
+    guard let webrtcUrl = json["webrtcUrl"] as? String,
+          let url = URL(string: webrtcUrl) else {
+        throw PipecatPluginError.invalidParams("missing or invalid webrtcUrl")
+    }
     return SmallWebRTCTransportConnectionParams(
-        webrtcRequestParams: request,
+        webrtcRequestParams: APIRequest(endpoint: url),
         iceConfig: nil
     )
 }
@@ -151,7 +153,7 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
     }
 
     func connect(transportParamsJson: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        guard let kind = activeKind else {
+        guard let kind = activeKind, let client = client else {
             completion(.failure(PipecatPluginError.notInitialized))
             return
         }
@@ -161,13 +163,18 @@ public class PipecatFlutterPlugin: NSObject, FlutterPlugin, PipecatClientApi, Pi
             return
         }
         let params: any TransportConnectionParams
-        switch kind {
-        case .daily:
-            params = parseDailyConnectionParams(json)
-        case .smallWebRtc:
-            params = parseSmallWebRTCConnectionParams(json)
+        do {
+            switch kind {
+            case .daily:
+                params = parseDailyConnectionParams(json)
+            case .smallWebRtc:
+                params = try parseSmallWebRTCConnectionParams(json)
+            }
+        } catch {
+            completion(.failure(error))
+            return
         }
-        client?.connect(transportParams: params) { result in
+        client.connect(transportParams: params) { result in
             switch result {
             case .success:
                 completion(.success(()))

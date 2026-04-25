@@ -8,9 +8,10 @@ import 'dart:convert';
 sealed class PipecatConnectParams {
   const PipecatConnectParams();
 
-  /// Internal. Serializes to the wire JSON shape consumed by the native
-  /// plugin layer. The Dart side owns this schema.
-  String toWireJson();
+  /// Wire schema (owned by Dart, consumed by the native plugin).
+  Map<String, dynamic> toMap();
+
+  String toWireJson() => jsonEncode(toMap());
 }
 
 /// Connect parameters for [DailyTransport].
@@ -21,10 +22,10 @@ final class DailyConnectParams extends PipecatConnectParams {
   final String? token;
 
   @override
-  String toWireJson() => jsonEncode({
+  Map<String, dynamic> toMap() => {
         'roomUrl': roomUrl,
         if (token != null) 'token': token,
-      });
+      };
 }
 
 /// Connect parameters for [SmallWebRTCTransport].
@@ -35,14 +36,14 @@ final class SmallWebRTCConnectParams extends PipecatConnectParams {
   final IceConfig? iceConfig;
 
   @override
-  String toWireJson() => jsonEncode({
+  Map<String, dynamic> toMap() => {
         'webrtcUrl': webrtcUrl,
         if (iceConfig != null) 'iceConfig': iceConfig!.toMap(),
-      });
+      };
 }
 
 /// Per-call WebRTC ICE configuration. Used by SmallWebRTC.
-class IceConfig {
+final class IceConfig {
   const IceConfig({required this.iceServers});
 
   final List<String> iceServers;

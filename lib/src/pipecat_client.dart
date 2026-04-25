@@ -45,7 +45,8 @@ class PipecatClient {
   }
 
   /// Test-only constructor that injects a pre-built [pigeon.PipecatClientApi].
-  /// Use this when unit-testing client behavior with a mocked api.
+  /// Skips `PipecatClientCallbacks.setUp` deliberately — callback-driven
+  /// tests use `messenger.handlePlatformMessage(...)` instead.
   @visibleForTesting
   PipecatClient.withApi({
     required PipecatTransport transport,
@@ -62,7 +63,6 @@ class PipecatClient {
   late final ValueNotifier<HardwareState> _hardwareState;
   bool _disposed = false;
 
-  /// The transport selected at construction. Read-only.
   PipecatTransport get transport => _transport;
 
   /// The current hardware state.
@@ -110,8 +110,6 @@ class PipecatClient {
   final _onParticipantUpdatedController = StreamController<Participant>.broadcast();
   final _onTracksUpdatedController = StreamController<Tracks>.broadcast();
   final _onBotLLMSearchResponseController = StreamController<BotLLMSearchResponseData>.broadcast();
-
-  // New stream controllers
   final _onBotConnectedController = StreamController<Participant>.broadcast();
   final _onBotDisconnectedController = StreamController<Participant>.broadcast();
   final _onBotStartedController = StreamController<Value?>.broadcast();
@@ -153,8 +151,6 @@ class PipecatClient {
   Stream<Participant> get onParticipantUpdated => _onParticipantUpdatedController.stream;
   Stream<Tracks> get onTracksUpdated => _onTracksUpdatedController.stream;
   Stream<BotLLMSearchResponseData> get onBotLLMSearchResponse => _onBotLLMSearchResponseController.stream;
-
-  // New streams
   Stream<Participant> get onBotConnected => _onBotConnectedController.stream;
   Stream<Participant> get onBotDisconnected => _onBotDisconnectedController.stream;
   Stream<Value?> get onBotStarted => _onBotStartedController.stream;
@@ -832,8 +828,6 @@ class _PipecatClientCallbackHandler implements pigeon.PipecatClientCallbacks {
   void onBotLLMSearchResponse(pigeon.BotLLMSearchResponseData response) =>
       _safeAdd(_client._onBotLLMSearchResponseController,
           PipecatClient._mapSearchResponse(response));
-
-  // New callbacks
 
   @override
   void onBotConnected(pigeon.Participant participant) => _safeAdd(
