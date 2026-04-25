@@ -20,6 +20,7 @@ import 'types/llm_function_call_data.dart';
 import 'types/search_response.dart';
 import 'types/hardware_state.dart';
 import 'types/pipecat_transport.dart';
+import 'types/pipecat_connect_params.dart';
 
 /// Function signature for LLM function call handlers.
 ///
@@ -260,7 +261,42 @@ class PipecatClient {
     }
   }
 
-  Future<void> connect(String transportParamsJson) async {
+  /// Connect to a Pipecat session using typed transport-specific parameters.
+  ///
+  /// The [transportParams] runtime type must pair with the transport chosen
+  /// at construction:
+  /// - [DailyTransport] ↔ [DailyConnectParams]
+  /// - [SmallWebRTCTransport] ↔ [SmallWebRTCConnectParams]
+  ///
+  /// Throws [PipecatTransportMismatchException] for any other pairing,
+  /// before any platform-channel call is made.
+  Future<void> connect({required PipecatConnectParams transportParams}) async {
+    _ensureAlive();
+    final ok = switch ((_transport, transportParams)) {
+      (DailyTransport(), DailyConnectParams()) => true,
+      (SmallWebRTCTransport(), SmallWebRTCConnectParams()) => true,
+      _ => false,
+    };
+    if (!ok) {
+      throw PipecatTransportMismatchException(
+        _transport.runtimeType,
+        transportParams.runtimeType,
+      );
+    }
+    try {
+      await _api.connect(transportParams.toWireJson());
+    } on PlatformException catch (e) {
+      throw PipecatConnectionException(
+        e.message ?? 'Failed to connect',
+        code: e.code,
+      );
+    }
+  }
+
+  /// Low-level escape hatch: send raw transport-params JSON straight to the
+  /// native plugin. Prefer the typed [connect] for production code; use this
+  /// for tests and ad-hoc setups where you already have JSON in hand.
+  Future<void> connectRaw(String transportParamsJson) async {
     _ensureAlive();
     try {
       await _api.connect(transportParamsJson);
